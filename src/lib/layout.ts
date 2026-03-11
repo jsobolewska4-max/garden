@@ -9,20 +9,26 @@ export interface GardenConfig {
   containers?: { widthInches: number; lengthInches: number; depthInches: number }[];
 }
 
-export interface PlacedPlant {
+export interface PlantInstance {
   plant: PlantData;
-  row: number;
-  col: number;
-  // For containers: which container index
+  row: number; // grid row where this plant is placed
+  col: number; // grid col where this plant is placed
+  containerIndex?: number;
+}
+
+export interface PlantAllocation {
+  plant: PlantData;
+  count: number;
   containerIndex?: number;
 }
 
 export interface LayoutResult {
-  grid: (string | null)[][]; // plant id or null
+  grid: (string | null)[][]; // plant id or null — each cell = cellSizeInches
   cellSizeInches: number;
   rows: number;
   cols: number;
-  placedPlants: PlacedPlant[];
+  plantInstances: PlantInstance[];
+  plantAllocations: PlantAllocation[];
   unplacedPlants: PlantData[];
   // For containers
   containerLayouts?: {
@@ -30,6 +36,10 @@ export interface LayoutResult {
     rows: number;
     cols: number;
     containerIndex: number;
+    widthInches: number;
+    lengthInches: number;
+    plantInstances: PlantInstance[];
+    plantAllocations: PlantAllocation[];
   }[];
 }
 
@@ -49,6 +59,37 @@ function areEnemies(a: PlantData, b: PlantData): boolean {
   return a.enemies.includes(b.id) || b.enemies.includes(a.id);
 }
 
+/**
+ * Calculate how many plants fit in a given area dimension.
+ * Plants are placed at spacingInches intervals starting from edge offset.
+ * E.g., for a 24" wide container with 24" spacing: 1 plant (centered).
+ * For 90" long with 24" spacing: floor(90 / 24) = 3 plants, with some edge padding.
+ */
+function plantsAlongDimension(dimensionInches: number, spacingInches: number): number {
+  if (dimensionInches < spacingInches * 0.75) return 0;
+  // First plant placed spacingInches/2 from edge, subsequent at spacingInches intervals
+  const edgeOffset = spacingInches / 2;
+  if (dimensionInches < edgeOffset * 2) return dimensionInches >= spacingInches * 0.5 ? 1 : 0;
+  const usableLength = dimensionInches - edgeOffset; // from first plant to far edge
+  return Math.max(1, Math.floor(usableLength / spacingInches) + 1);
+}
+
+/**
+ * Calculate how many of a plant fits in a rectangular area
+ */
+function plantsInArea(
+  widthInches: number,
+  lengthInches: number,
+  spacingInches: number
+): { countX: number; countY: number; total: number } {
+  const countX = plantsAlongDimension(widthInches, spacingInches);
+  const countY = plantsAlongDimension(lengthInches, spacingInches);
+  return { countX, countY, total: countX * countY };
+}
+
+// Use a 3-inch grid for finer placement resolution
+const CELL_SIZE = 3;
+
 export function generateLayout(
   config: GardenConfig,
   selectedPlants: PlantData[]
@@ -57,8 +98,14 @@ export function generateLayout(
     return generateContainerLayout(config, selectedPlants);
   }
 
-  // Cell size: use 6-inch grid for in-ground gardens
-  const cellSizeInches = 6;
+  return generateInGroundLayout(config, selectedPlants);
+}
+
+function generateInGroundLayout(
+  config: GardenConfig,
+  selectedPlants: PlantData[]
+): LayoutResult {
+  const cellSizeInches = CELL_SIZE;
   const widthInches = config.widthFeet * 12;
   const lengthInches = config.lengthFeet * 12;
   const cols = Math.floor(widthInches / cellSizeInches);
@@ -67,65 +114,58 @@ export function generateLayout(
   const grid: (string | null)[][] = Array.from({ length: rows }, () =>
     Array(cols).fill(null)
   );
-  const placedPlants: PlacedPlant[] = [];
+  const plantInstances: PlantInstance[] = [];
+  const plantAllocations: PlantAllocation[] = [];
   const unplacedPlants: PlantData[] = [];
 
-  // Sort plants by height (tall in back = low row indices)
+  // Sort: tall in back (low row indices = north)
   const sorted = sortByHeight(selectedPlants);
 
+  // For each plant type, calculate how many fit and place them
+  // We allocate vertical bands proportional to each plant's space needs
+  let currentRow = 0;
+
   for (const plant of sorted) {
-    const cellsNeeded = Math.ceil(plant.spacingInches / cellSizeInches);
-    let placed = false;
+    const spacingCells = Math.max(1, Math.round(plant.spacingInches / cellSizeInches));
+    const countX = plantsAlongDimension(widthInches, plant.spacingInches);
 
-    // Try to place the plant, preferring positions near companions and away from enemies
-    let bestRow = -1;
-    let bestCol = -1;
-    let bestScore = -Infinity;
+    // Calculate how many rows this plant type needs
+    // Give each plant type a proportional band of the garden
+    const availableRows = rows - currentRow;
+    if (availableRows <= 0 || countX === 0) {
+      unplacedPlants.push(plant);
+      continue;
+    }
 
-    for (let r = 0; r <= rows - cellsNeeded; r++) {
-      for (let c = 0; c <= cols - cellsNeeded; c++) {
-        // Check if space is available
-        if (!isAreaFree(grid, r, c, cellsNeeded)) continue;
+    // Place a reasonable number: fill available rows with this plant at proper spacing
+    const rowsForPlant = Math.min(spacingCells * 2, availableRows);
+    const countY = plantsAlongDimension(rowsForPlant * cellSizeInches, plant.spacingInches);
 
-        // Score this position based on companion/enemy proximity
-        let score = 0;
-        // Prefer height-appropriate rows
-        if (plant.heightCategory === "tall" || plant.heightCategory === "vine") {
-          score += (rows - r) * 0.5; // prefer top rows
-        } else if (plant.heightCategory === "low") {
-          score += r * 0.5; // prefer bottom rows
-        }
+    if (countY === 0) {
+      unplacedPlants.push(plant);
+      continue;
+    }
 
-        // Check neighbors
-        for (const placed of placedPlants) {
-          const dist = Math.abs(placed.row - r) + Math.abs(placed.col - c);
-          if (dist <= cellsNeeded * 2) {
-            if (areCompanions(plant, placed.plant)) score += 5;
-            if (areEnemies(plant, placed.plant)) score -= 10;
-          }
-        }
+    const totalCount = countX * countY;
+    plantAllocations.push({ plant, count: totalCount });
 
-        if (score > bestScore) {
-          bestScore = score;
-          bestRow = r;
-          bestCol = c;
+    // Place individual instances
+    const startOffset = Math.floor(spacingCells / 2);
+    for (let iy = 0; iy < countY; iy++) {
+      for (let ix = 0; ix < countX; ix++) {
+        const r = currentRow + startOffset + iy * spacingCells;
+        const c = startOffset + ix * spacingCells;
+        if (r < rows && c < cols) {
+          grid[r][c] = plant.id;
+          plantInstances.push({ plant, row: r, col: c });
         }
       }
     }
 
-    if (bestRow >= 0) {
-      // Place plant in the center of its allocated area
-      fillArea(grid, bestRow, bestCol, cellsNeeded, plant.id);
-      placedPlants.push({ plant, row: bestRow, col: bestCol });
-      placed = true;
-    }
-
-    if (!placed) {
-      unplacedPlants.push(plant);
-    }
+    currentRow += rowsForPlant;
   }
 
-  return { grid, cellSizeInches, rows, cols, placedPlants, unplacedPlants };
+  return { grid, cellSizeInches, rows, cols, plantInstances, plantAllocations, unplacedPlants };
 }
 
 function generateContainerLayout(
@@ -133,17 +173,18 @@ function generateContainerLayout(
   selectedPlants: PlantData[]
 ): LayoutResult {
   const containers = config.containers || [];
-  const cellSizeInches = 6;
+  const cellSizeInches = CELL_SIZE;
   const containerLayouts: LayoutResult["containerLayouts"] = [];
-  const placedPlants: PlacedPlant[] = [];
+  const allPlantInstances: PlantInstance[] = [];
+  const allPlantAllocations: PlantAllocation[] = [];
   const unplacedPlants: PlantData[] = [];
 
-  // Filter for container-friendly plants
+  // Filter for container-friendly plants with enough depth
   const containerPlants = selectedPlants.filter((p) => p.containerFriendly);
   const nonContainerPlants = selectedPlants.filter((p) => !p.containerFriendly);
   unplacedPlants.push(...nonContainerPlants);
 
-  let remainingPlants = [...containerPlants];
+  let remainingPlants = sortByHeight(containerPlants);
 
   for (let ci = 0; ci < containers.length && remainingPlants.length > 0; ci++) {
     const container = containers[ci];
@@ -153,74 +194,147 @@ function generateContainerLayout(
       Array(cols).fill(null)
     );
 
+    const containerInstances: PlantInstance[] = [];
+    const containerAllocations: PlantAllocation[] = [];
     const toPlace = [...remainingPlants];
     remainingPlants = [];
 
-    for (const plant of toPlace) {
-      if (plant.minContainerDepthInches > container.depthInches) {
-        remainingPlants.push(plant);
-        continue;
-      }
+    // Group plants by companion relationships for smarter placement
+    const companionGroups = buildCompanionGroups(toPlace);
 
-      const cellsNeeded = Math.ceil(plant.spacingInches / cellSizeInches);
-      let placed = false;
+    let currentRow = 0;
 
-      for (let r = 0; r <= rows - cellsNeeded && !placed; r++) {
-        for (let c = 0; c <= cols - cellsNeeded && !placed; c++) {
-          if (isAreaFree(grid, r, c, cellsNeeded)) {
-            fillArea(grid, r, c, cellsNeeded, plant.id);
-            placedPlants.push({ plant, row: r, col: c, containerIndex: ci });
-            placed = true;
+    for (const group of companionGroups) {
+      for (const plant of group) {
+        if (plant.minContainerDepthInches > container.depthInches) {
+          remainingPlants.push(plant);
+          continue;
+        }
+
+        const availableLengthInches = (rows - currentRow) * cellSizeInches;
+        if (availableLengthInches <= 0) {
+          remainingPlants.push(plant);
+          continue;
+        }
+
+        const spacingCells = Math.max(1, Math.round(plant.spacingInches / cellSizeInches));
+        const countX = plantsAlongDimension(container.widthInches, plant.spacingInches);
+
+        if (countX === 0) {
+          remainingPlants.push(plant);
+          continue;
+        }
+
+        // Allocate rows for this plant — enough for 1-2 rows of plants
+        const rowsNeeded = spacingCells;
+        const actualRows = Math.min(rowsNeeded, rows - currentRow);
+        const countY = plantsAlongDimension(actualRows * cellSizeInches, plant.spacingInches);
+
+        if (countY === 0) {
+          remainingPlants.push(plant);
+          continue;
+        }
+
+        const totalCount = countX * countY;
+        containerAllocations.push({ plant, count: totalCount, containerIndex: ci });
+        allPlantAllocations.push({ plant, count: totalCount, containerIndex: ci });
+
+        // Place individual plant instances
+        const startOffsetX = Math.floor(spacingCells / 2);
+        const startOffsetY = Math.floor(spacingCells / 2);
+
+        for (let iy = 0; iy < countY; iy++) {
+          for (let ix = 0; ix < countX; ix++) {
+            const r = currentRow + startOffsetY + iy * spacingCells;
+            const c = startOffsetX + ix * spacingCells;
+            if (r < rows && c < cols) {
+              grid[r][c] = plant.id;
+              const instance: PlantInstance = { plant, row: r, col: c, containerIndex: ci };
+              containerInstances.push(instance);
+              allPlantInstances.push(instance);
+            }
           }
         }
-      }
 
-      if (!placed) {
-        remainingPlants.push(plant);
+        currentRow += actualRows;
       }
     }
 
-    containerLayouts.push({ grid, rows, cols, containerIndex: ci });
+    containerLayouts.push({
+      grid,
+      rows,
+      cols,
+      containerIndex: ci,
+      widthInches: container.widthInches,
+      lengthInches: container.lengthInches,
+      plantInstances: containerInstances,
+      plantAllocations: containerAllocations,
+    });
   }
 
   unplacedPlants.push(...remainingPlants);
 
-  // Return a combined result
   return {
     grid: [],
     cellSizeInches,
     rows: 0,
     cols: 0,
-    placedPlants,
+    plantInstances: allPlantInstances,
+    plantAllocations: allPlantAllocations,
     unplacedPlants,
     containerLayouts,
   };
 }
 
-function isAreaFree(
-  grid: (string | null)[][],
-  startRow: number,
-  startCol: number,
-  size: number
-): boolean {
-  for (let r = startRow; r < startRow + size && r < grid.length; r++) {
-    for (let c = startCol; c < startCol + size && c < grid[0].length; c++) {
-      if (grid[r][c] !== null) return false;
-    }
-  }
-  return true;
-}
+/**
+ * Group plants so that companions are placed adjacent to each other
+ * and enemies are separated. Returns ordered groups.
+ */
+function buildCompanionGroups(plants: PlantData[]): PlantData[][] {
+  if (plants.length <= 1) return [plants];
 
-function fillArea(
-  grid: (string | null)[][],
-  startRow: number,
-  startCol: number,
-  size: number,
-  plantId: string
-): void {
-  for (let r = startRow; r < startRow + size && r < grid.length; r++) {
-    for (let c = startCol; c < startCol + size && c < grid[0].length; c++) {
-      grid[r][c] = plantId;
+  const placed = new Set<string>();
+  const groups: PlantData[][] = [];
+
+  // Start with the first plant, then greedily add companions
+  const remaining = [...plants];
+
+  while (remaining.length > 0) {
+    const group: PlantData[] = [];
+    const seed = remaining.shift()!;
+    group.push(seed);
+    placed.add(seed.id);
+
+    // Find companions of this seed among remaining plants
+    for (let i = remaining.length - 1; i >= 0; i--) {
+      const candidate = remaining[i];
+      // Add if companion of any plant in current group AND not enemy of any
+      const isCompanion = group.some((g) => areCompanions(g, candidate));
+      const isEnemy = group.some((g) => areEnemies(g, candidate));
+
+      if (isCompanion && !isEnemy) {
+        group.push(candidate);
+        placed.add(candidate.id);
+        remaining.splice(i, 1);
+      }
+    }
+
+    groups.push(group);
+  }
+
+  // Reorder groups so enemies are far apart
+  // Simple: sort by checking if adjacent groups have enemy relationships
+  for (let i = 0; i < groups.length - 1; i++) {
+    for (let j = i + 1; j < groups.length; j++) {
+      const hasEnemy = groups[i].some((a) =>
+        groups[i + 1]?.some((b) => areEnemies(a, b))
+      );
+      if (hasEnemy && j + 1 < groups.length) {
+        // Swap to move enemy group further away
+        [groups[i + 1], groups[j]] = [groups[j], groups[i + 1]];
+      }
     }
   }
+
+  return groups;
 }

@@ -34,8 +34,8 @@ export default function ResultsPage({
   );
 
   const timeline = useMemo(
-    () => generateTimeline(zoneData, selectedPlants),
-    [zoneData, selectedPlants]
+    () => generateTimeline(zoneData, selectedPlants, layout.plantAllocations),
+    [zoneData, selectedPlants, layout.plantAllocations]
   );
 
   // Group timeline events by month
@@ -79,6 +79,9 @@ export default function ResultsPage({
     return map;
   }, [selectedPlants]);
 
+  // Gather all allocations for the summary
+  const allAllocations = layout.plantAllocations;
+
   return (
     <div className="max-w-4xl mx-auto">
       <div className="text-center mb-8">
@@ -90,7 +93,7 @@ export default function ResultsPage({
           {gardenConfig.type === "inground"
             ? `${gardenConfig.widthFeet}' x ${gardenConfig.lengthFeet}' bed`
             : `${gardenConfig.containers?.length} container${(gardenConfig.containers?.length || 0) > 1 ? "s" : ""}`}
-          {" "}&middot; {selectedPlants.length} plants
+          {" "}&middot; {selectedPlants.length} plant type{selectedPlants.length !== 1 ? "s" : ""}
         </p>
       </div>
 
@@ -124,16 +127,20 @@ export default function ResultsPage({
           </div>
         )}
 
-        {/* Plant legend */}
-        <div className="mt-4 flex flex-wrap gap-2">
-          {selectedPlants.map((p) => (
-            <div
-              key={p.id}
-              className={`inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium ${plantColors[p.id]} text-gray-700`}
-            >
-              {p.emoji} {p.name}
-            </div>
-          ))}
+        {/* Plant legend with counts */}
+        <div className="mt-4">
+          <div className="text-sm font-medium text-gray-600 mb-2">Plant counts based on your space:</div>
+          <div className="flex flex-wrap gap-2">
+            {allAllocations.map((alloc) => (
+              <div
+                key={`${alloc.plant.id}-${alloc.containerIndex ?? "all"}`}
+                className={`inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium ${plantColors[alloc.plant.id]} text-gray-700`}
+              >
+                {alloc.plant.emoji} {alloc.plant.name} &times; {alloc.count}
+                <span className="text-gray-500 ml-1">({alloc.plant.spacingInches}&quot; apart)</span>
+              </div>
+            ))}
+          </div>
         </div>
 
         {/* Companion planting tips */}
@@ -146,38 +153,77 @@ export default function ResultsPage({
           <span className="text-2xl">&#128197;</span> Planting Timeline
         </h3>
 
-        <div className="space-y-6">
-          {Object.entries(eventsByMonth).map(([month, events]) => (
-            <div key={month}>
-              <h4 className="text-lg font-semibold text-gray-700 mb-3 border-b border-gray-200 pb-1">
-                {month}
-              </h4>
-              <div className="space-y-2">
-                {events.map((event, i) => {
-                  const color = actionColors[event.action];
-                  return (
-                    <div
-                      key={`${event.plantId}-${event.action}-${i}`}
-                      className="flex items-start gap-3 p-3 bg-white border border-gray-100 rounded-lg"
-                    >
-                      <div className="text-sm text-gray-500 min-w-[80px] font-medium">
-                        {formatDate(event.date)}
-                      </div>
-                      <span
-                        className={`px-2 py-0.5 rounded text-xs font-medium ${color.bg} ${color.text} min-w-[90px] text-center`}
-                      >
-                        {color.label}
-                      </span>
-                      <div className="text-sm text-gray-700">
-                        {event.plantEmoji} {event.description}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          ))}
+        {/* Spring/Summer section */}
+        <div className="mb-6">
+          <h4 className="text-md font-semibold text-green-700 mb-3 flex items-center gap-1">
+            <span>&#127793;</span> Spring / Summer
+          </h4>
+          <TimelineEvents
+            eventsByMonth={filterEventsByMonth(eventsByMonth, "spring")}
+          />
         </div>
+
+        {/* Fall section */}
+        {hasFallEvents(eventsByMonth) && (
+          <div className="mb-6">
+            <h4 className="text-md font-semibold text-orange-700 mb-3 flex items-center gap-1">
+              <span>&#127810;</span> Fall Planting
+            </h4>
+            <TimelineEvents
+              eventsByMonth={filterEventsByMonth(eventsByMonth, "fall")}
+            />
+          </div>
+        )}
+      </section>
+
+      {/* Seed Shopping Summary */}
+      <section className="mb-10">
+        <h3 className="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
+          <span className="text-2xl">&#127793;</span> Seed Shopping List
+        </h3>
+        <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="bg-gray-50 border-b border-gray-200">
+                <th className="text-left px-4 py-2 font-medium text-gray-700">Plant</th>
+                <th className="text-center px-4 py-2 font-medium text-gray-700">Plants in Layout</th>
+                <th className="text-center px-4 py-2 font-medium text-gray-700">Seeds/Spot</th>
+                <th className="text-center px-4 py-2 font-medium text-gray-700">Total Seeds (Spring)</th>
+                <th className="text-center px-4 py-2 font-medium text-gray-700">Fall Crop?</th>
+              </tr>
+            </thead>
+            <tbody>
+              {allAllocations.map((alloc) => {
+                const totalSeeds = alloc.count * alloc.plant.seedsPerSpot;
+                return (
+                  <tr key={`${alloc.plant.id}-${alloc.containerIndex ?? ""}`} className="border-b border-gray-100">
+                    <td className="px-4 py-2">
+                      {alloc.plant.emoji} {alloc.plant.name}
+                    </td>
+                    <td className="text-center px-4 py-2">{alloc.count}</td>
+                    <td className="text-center px-4 py-2">
+                      {alloc.plant.seedsPerSpot}
+                      {alloc.plant.needsThinning && (
+                        <span className="text-gray-400 text-xs ml-1">(thin)</span>
+                      )}
+                    </td>
+                    <td className="text-center px-4 py-2 font-medium">{totalSeeds}</td>
+                    <td className="text-center px-4 py-2">
+                      {alloc.plant.canFallPlant ? (
+                        <span className="text-green-600">Yes (+{totalSeeds})</span>
+                      ) : (
+                        <span className="text-gray-400">No</span>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+        <p className="text-xs text-gray-500 mt-2">
+          Seed counts include extras for thinning where applicable. Buy a few extra seeds as insurance for poor germination.
+        </p>
       </section>
 
       {/* Growing Tips */}
@@ -196,7 +242,7 @@ export default function ResultsPage({
               </div>
               <p className="text-sm text-gray-600">{plant.tip}</p>
               <div className="text-xs text-gray-400 mt-1">
-                {plant.sun} sun &middot; {plant.daysToHarvest} days to harvest
+                {plant.sun} sun &middot; {plant.daysToHarvest} days to harvest &middot; {plant.spacingInches}&quot; spacing
               </div>
             </div>
           ))}
@@ -226,18 +272,20 @@ function InGroundGrid({
 }) {
   if (layout.rows === 0 || layout.cols === 0) return null;
 
-  // Show merged cells — find rectangular regions for each plant
-  const regions = getPlantRegions(layout.grid, layout.rows, layout.cols);
+  // Calculate pixel size per cell — scale to reasonable display size
+  const maxGridWidth = 500;
+  const cellPx = Math.min(20, Math.floor(maxGridWidth / layout.cols));
 
   return (
     <div className="overflow-x-auto">
-      <div className="inline-block border-2 border-amber-700 rounded-lg bg-amber-50 p-1">
-        <div className="text-xs text-gray-400 text-center mb-1">&#8593; North (place tall plants here)</div>
+      <div className="inline-block border-2 border-amber-700 rounded-lg bg-amber-50 p-2">
+        <div className="text-xs text-gray-400 text-center mb-1">&#8593; North (tall plants)</div>
         <div
-          className="grid gap-px"
+          className="grid"
           style={{
-            gridTemplateColumns: `repeat(${layout.cols}, minmax(20px, 28px))`,
-            gridTemplateRows: `repeat(${layout.rows}, minmax(20px, 28px))`,
+            gridTemplateColumns: `repeat(${layout.cols}, ${cellPx}px)`,
+            gridTemplateRows: `repeat(${layout.rows}, ${cellPx}px)`,
+            gap: "1px",
           }}
         >
           {Array.from({ length: layout.rows }).map((_, r) =>
@@ -246,18 +294,20 @@ function InGroundGrid({
               const plant = plantId
                 ? selectedPlants.find((p) => p.id === plantId)
                 : null;
+              const isPlantInstance = plantId !== null;
               return (
                 <div
                   key={`${r}-${c}`}
-                  className={`w-full h-full rounded-sm flex items-center justify-center text-[10px] ${
-                    plantId
-                      ? plantColors[plantId] || "bg-gray-200"
-                      : "bg-amber-100/50"
+                  className={`flex items-center justify-center ${
+                    isPlantInstance
+                      ? plantColors[plantId!] || "bg-gray-200"
+                      : "bg-amber-100/30"
                   }`}
-                  title={plant ? plant.name : "Empty"}
+                  style={{ width: cellPx, height: cellPx, borderRadius: isPlantInstance ? "50%" : "1px" }}
+                  title={plant ? `${plant.name} (${plant.spacingInches}" spacing)` : ""}
                 >
-                  {plantId && isRegionOrigin(regions, plantId, r, c) && (
-                    <span className="text-sm">{plant?.emoji}</span>
+                  {isPlantInstance && cellPx >= 14 && (
+                    <span style={{ fontSize: Math.max(10, cellPx - 4) }}>{plant?.emoji}</span>
                   )}
                 </div>
               );
@@ -265,6 +315,9 @@ function InGroundGrid({
           )}
         </div>
         <div className="text-xs text-gray-400 text-center mt-1">&#8595; South</div>
+        <div className="text-xs text-gray-400 text-center">
+          Each cell = {layout.cellSizeInches}&quot; &middot; Grid = {layout.cols * layout.cellSizeInches}&quot; &times; {layout.rows * layout.cellSizeInches}&quot;
+        </div>
       </div>
     </div>
   );
@@ -284,12 +337,16 @@ function ContainerGrids({
   if (!layout.containerLayouts) return null;
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       {layout.containerLayouts.map((cl) => {
         const container = gardenConfig.containers?.[cl.containerIndex];
+        // Scale cells to reasonable size
+        const maxWidth = 400;
+        const cellPx = Math.min(24, Math.floor(maxWidth / cl.cols));
+
         return (
-          <div key={cl.containerIndex} className="inline-block">
-            <div className="text-sm font-medium text-gray-600 mb-1">
+          <div key={cl.containerIndex}>
+            <div className="text-sm font-medium text-gray-600 mb-2">
               Container {cl.containerIndex + 1}{" "}
               {container && (
                 <span className="text-gray-400">
@@ -298,37 +355,73 @@ function ContainerGrids({
                 </span>
               )}
             </div>
-            <div className="border-2 border-amber-700 rounded-lg bg-amber-50 p-1 inline-block">
-              <div
-                className="grid gap-px"
-                style={{
-                  gridTemplateColumns: `repeat(${cl.cols}, minmax(24px, 32px))`,
-                  gridTemplateRows: `repeat(${cl.rows}, minmax(24px, 32px))`,
-                }}
-              >
-                {Array.from({ length: cl.rows }).map((_, r) =>
-                  Array.from({ length: cl.cols }).map((_, c) => {
-                    const plantId = cl.grid[r][c];
-                    const plant = plantId
-                      ? selectedPlants.find((p) => p.id === plantId)
-                      : null;
-                    return (
-                      <div
-                        key={`${r}-${c}`}
-                        className={`w-full h-full rounded-sm flex items-center justify-center ${
-                          plantId
-                            ? plantColors[plantId] || "bg-gray-200"
-                            : "bg-amber-100/50"
-                        }`}
-                        title={plant ? plant.name : "Empty"}
-                      >
-                        {plant && <span className="text-sm">{plant.emoji}</span>}
-                      </div>
-                    );
-                  })
-                )}
+            <div className="inline-block border-2 border-amber-700 rounded-lg bg-amber-50 p-2">
+              {/* Dimension label top */}
+              <div className="text-xs text-gray-400 text-center mb-1">
+                {container?.widthInches}&quot; wide
+              </div>
+              <div className="flex items-start gap-1">
+                <div
+                  className="grid"
+                  style={{
+                    gridTemplateColumns: `repeat(${cl.cols}, ${cellPx}px)`,
+                    gridTemplateRows: `repeat(${cl.rows}, ${cellPx}px)`,
+                    gap: "1px",
+                  }}
+                >
+                  {Array.from({ length: cl.rows }).map((_, r) =>
+                    Array.from({ length: cl.cols }).map((_, c) => {
+                      const plantId = cl.grid[r][c];
+                      const plant = plantId
+                        ? selectedPlants.find((p) => p.id === plantId)
+                        : null;
+                      const isPlantInstance = plantId !== null;
+                      return (
+                        <div
+                          key={`${r}-${c}`}
+                          className={`flex items-center justify-center ${
+                            isPlantInstance
+                              ? plantColors[plantId!] || "bg-gray-200"
+                              : "bg-amber-100/30"
+                          }`}
+                          style={{
+                            width: cellPx,
+                            height: cellPx,
+                            borderRadius: isPlantInstance ? "50%" : "1px",
+                          }}
+                          title={plant ? `${plant.name} (${plant.spacingInches}" spacing)` : ""}
+                        >
+                          {isPlantInstance && cellPx >= 14 && (
+                            <span style={{ fontSize: Math.max(10, cellPx - 6) }}>{plant?.emoji}</span>
+                          )}
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+                {/* Dimension label side */}
+                <div className="text-xs text-gray-400 flex items-center" style={{ writingMode: "vertical-rl" }}>
+                  {container?.lengthInches}&quot; long
+                </div>
+              </div>
+              <div className="text-xs text-gray-400 text-center mt-1">
+                Each cell = {layout.cellSizeInches}&quot;
               </div>
             </div>
+
+            {/* Per-container plant summary */}
+            {cl.plantAllocations.length > 0 && (
+              <div className="mt-2 flex flex-wrap gap-1">
+                {cl.plantAllocations.map((alloc) => (
+                  <span
+                    key={alloc.plant.id}
+                    className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs ${plantColors[alloc.plant.id]} text-gray-700`}
+                  >
+                    {alloc.plant.emoji} {alloc.count} {alloc.plant.name} ({alloc.plant.spacingInches}&quot; apart)
+                  </span>
+                ))}
+              </div>
+            )}
           </div>
         );
       })}
@@ -338,7 +431,6 @@ function ContainerGrids({
 
 function CompanionTips({ selectedPlants }: { selectedPlants: PlantData[] }) {
   const tips: { good: string[]; bad: string[] } = { good: [], bad: [] };
-  const selectedIds = new Set(selectedPlants.map((p) => p.id));
 
   for (let i = 0; i < selectedPlants.length; i++) {
     for (let j = i + 1; j < selectedPlants.length; j++) {
@@ -361,7 +453,7 @@ function CompanionTips({ selectedPlants }: { selectedPlants: PlantData[] }) {
       {tips.good.length > 0 && (
         <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
           <div className="text-sm font-medium text-green-800 mb-1">
-            Good Companions (plant near each other)
+            Good Companions (placed near each other)
           </div>
           {tips.good.map((tip, i) => (
             <div key={i} className="text-sm text-green-700">
@@ -373,7 +465,7 @@ function CompanionTips({ selectedPlants }: { selectedPlants: PlantData[] }) {
       {tips.bad.length > 0 && (
         <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
           <div className="text-sm font-medium text-red-800 mb-1">
-            Keep Apart (plant away from each other)
+            Keep Apart (placed away from each other)
           </div>
           {tips.bad.map((tip, i) => (
             <div key={i} className="text-sm text-red-700">
@@ -386,47 +478,62 @@ function CompanionTips({ selectedPlants }: { selectedPlants: PlantData[] }) {
   );
 }
 
-// Helper to find the first cell of each plant region (for emoji placement)
-interface Region {
-  plantId: string;
-  startRow: number;
-  startCol: number;
+function TimelineEvents({ eventsByMonth }: { eventsByMonth: Record<string, TimelineEvent[]> }) {
+  const entries = Object.entries(eventsByMonth);
+  if (entries.length === 0) return <p className="text-sm text-gray-400 italic">No events for this season.</p>;
+
+  return (
+    <div className="space-y-6">
+      {entries.map(([month, events]) => (
+        <div key={month}>
+          <h4 className="text-lg font-semibold text-gray-700 mb-3 border-b border-gray-200 pb-1">
+            {month}
+          </h4>
+          <div className="space-y-2">
+            {events.map((event, i) => {
+              const color = actionColors[event.action];
+              return (
+                <div
+                  key={`${event.plantId}-${event.action}-${event.season}-${i}`}
+                  className="flex items-start gap-3 p-3 bg-white border border-gray-100 rounded-lg"
+                >
+                  <div className="text-sm text-gray-500 min-w-[80px] font-medium">
+                    {formatDate(event.date)}
+                  </div>
+                  <span
+                    className={`px-2 py-0.5 rounded text-xs font-medium ${color.bg} ${color.text} min-w-[90px] text-center`}
+                  >
+                    {color.label}
+                  </span>
+                  <div className="text-sm text-gray-700">
+                    {event.plantEmoji} {event.description}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
 }
 
-function getPlantRegions(
-  grid: (string | null)[][],
-  rows: number,
-  cols: number
-): Region[] {
-  const seen = new Set<string>();
-  const regions: Region[] = [];
-
-  for (let r = 0; r < rows; r++) {
-    for (let c = 0; c < cols; c++) {
-      const id = grid[r][c];
-      if (id && !seen.has(`${id}-${r}-${c}`)) {
-        // Check if this is the top-left of a new region for this plant
-        const key = `${id}-region-${regions.filter((x) => x.plantId === id).length}`;
-        if (
-          (r === 0 || grid[r - 1][c] !== id) &&
-          (c === 0 || grid[r][c - 1] !== id)
-        ) {
-          regions.push({ plantId: id, startRow: r, startCol: c });
-        }
-      }
+function filterEventsByMonth(
+  eventsByMonth: Record<string, TimelineEvent[]>,
+  season: "spring" | "fall"
+): Record<string, TimelineEvent[]> {
+  const filtered: Record<string, TimelineEvent[]> = {};
+  for (const [month, events] of Object.entries(eventsByMonth)) {
+    const seasonEvents = events.filter((e) => e.season === season);
+    if (seasonEvents.length > 0) {
+      filtered[month] = seasonEvents;
     }
   }
-
-  return regions;
+  return filtered;
 }
 
-function isRegionOrigin(
-  regions: Region[],
-  plantId: string,
-  row: number,
-  col: number
-): boolean {
-  return regions.some(
-    (r) => r.plantId === plantId && r.startRow === row && r.startCol === col
+function hasFallEvents(eventsByMonth: Record<string, TimelineEvent[]>): boolean {
+  return Object.values(eventsByMonth).some((events) =>
+    events.some((e) => e.season === "fall")
   );
 }

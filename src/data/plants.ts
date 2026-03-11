@@ -31,6 +31,16 @@ export interface PlantData {
   minContainerDepthInches: number;
   // Brief growing tip
   tip: string;
+  // Fall planting support
+  canFallPlant: boolean;
+  // Weeks before first frost to direct sow for fall crop
+  fallSowWeeksBeforeFirstFrost: number;
+  // Weeks before first frost to start indoors for fall crop (0 = direct sow only)
+  fallStartIndoorsWeeksBeforeFirstFrost: number;
+  // How many seeds to sow per planting spot (for thinning)
+  seedsPerSpot: number;
+  // Whether seedlings need thinning
+  needsThinning: boolean;
 }
 
 export const plants: PlantData[] = [
@@ -46,11 +56,16 @@ export const plants: PlantData[] = [
     canDirectSow: false,
     directSowWeeksFromFrost: 0,
     daysToHarvest: 70,
-    companions: ["basil", "carrot", "parsley", "marigold"],
-    enemies: ["brassoli", "fennel"],
+    companions: ["basil", "carrot", "parsley"],
+    enemies: ["broccoli", "cauliflower", "corn", "kale"],
     containerFriendly: true,
     minContainerDepthInches: 18,
     tip: "Use a cage or stake for support. Prune suckers for larger fruit.",
+    canFallPlant: false,
+    fallSowWeeksBeforeFirstFrost: 0,
+    fallStartIndoorsWeeksBeforeFirstFrost: 0,
+    seedsPerSpot: 2,
+    needsThinning: true,
   },
   {
     id: "pepper",
@@ -69,6 +84,11 @@ export const plants: PlantData[] = [
     containerFriendly: true,
     minContainerDepthInches: 12,
     tip: "Pick first fruits early to encourage more production.",
+    canFallPlant: false,
+    fallSowWeeksBeforeFirstFrost: 0,
+    fallStartIndoorsWeeksBeforeFirstFrost: 0,
+    seedsPerSpot: 2,
+    needsThinning: true,
   },
   {
     id: "cucumber",
@@ -87,6 +107,11 @@ export const plants: PlantData[] = [
     containerFriendly: true,
     minContainerDepthInches: 12,
     tip: "Provide a trellis to save space. Pick regularly for more fruit.",
+    canFallPlant: false,
+    fallSowWeeksBeforeFirstFrost: 0,
+    fallStartIndoorsWeeksBeforeFirstFrost: 0,
+    seedsPerSpot: 3,
+    needsThinning: true,
   },
   {
     id: "zucchini",
@@ -105,6 +130,11 @@ export const plants: PlantData[] = [
     containerFriendly: true,
     minContainerDepthInches: 18,
     tip: "One plant produces a LOT of zucchini. Start with just 1-2 plants.",
+    canFallPlant: false,
+    fallSowWeeksBeforeFirstFrost: 0,
+    fallStartIndoorsWeeksBeforeFirstFrost: 0,
+    seedsPerSpot: 2,
+    needsThinning: true,
   },
   {
     id: "lettuce",
@@ -123,6 +153,11 @@ export const plants: PlantData[] = [
     containerFriendly: true,
     minContainerDepthInches: 6,
     tip: "Harvest outer leaves for continuous production. Plant in shade of taller crops in summer.",
+    canFallPlant: true,
+    fallSowWeeksBeforeFirstFrost: 8,
+    fallStartIndoorsWeeksBeforeFirstFrost: 10,
+    seedsPerSpot: 3,
+    needsThinning: true,
   },
   {
     id: "spinach",
@@ -141,6 +176,11 @@ export const plants: PlantData[] = [
     containerFriendly: true,
     minContainerDepthInches: 6,
     tip: "Bolts in hot weather. Best as a spring and fall crop.",
+    canFallPlant: true,
+    fallSowWeeksBeforeFirstFrost: 8,
+    fallStartIndoorsWeeksBeforeFirstFrost: 0,
+    seedsPerSpot: 3,
+    needsThinning: true,
   },
   {
     id: "kale",
@@ -159,6 +199,11 @@ export const plants: PlantData[] = [
     containerFriendly: true,
     minContainerDepthInches: 8,
     tip: "Flavor improves after a light frost. Harvest lower leaves first.",
+    canFallPlant: true,
+    fallSowWeeksBeforeFirstFrost: 10,
+    fallStartIndoorsWeeksBeforeFirstFrost: 12,
+    seedsPerSpot: 2,
+    needsThinning: true,
   },
   {
     id: "carrot",
@@ -177,6 +222,11 @@ export const plants: PlantData[] = [
     containerFriendly: true,
     minContainerDepthInches: 12,
     tip: "Loosen soil deeply before planting. Keep soil moist for germination.",
+    canFallPlant: true,
+    fallSowWeeksBeforeFirstFrost: 12,
+    fallStartIndoorsWeeksBeforeFirstFrost: 0,
+    seedsPerSpot: 3,
+    needsThinning: true,
   },
   {
     id: "radish",
@@ -195,6 +245,11 @@ export const plants: PlantData[] = [
     containerFriendly: true,
     minContainerDepthInches: 6,
     tip: "Fastest growing veggie! Great for impatient beginners. Sow every 2 weeks for continuous harvest.",
+    canFallPlant: true,
+    fallSowWeeksBeforeFirstFrost: 6,
+    fallStartIndoorsWeeksBeforeFirstFrost: 0,
+    seedsPerSpot: 2,
+    needsThinning: true,
   },
   {
     id: "bean",
@@ -213,6 +268,11 @@ export const plants: PlantData[] = [
     containerFriendly: true,
     minContainerDepthInches: 8,
     tip: "Don't soak seeds before planting. Pick regularly to keep plants producing.",
+    canFallPlant: true,
+    fallSowWeeksBeforeFirstFrost: 10,
+    fallStartIndoorsWeeksBeforeFirstFrost: 0,
+    seedsPerSpot: 2,
+    needsThinning: false,
   },
   {
     id: "pea",
@@ -231,6 +291,11 @@ export const plants: PlantData[] = [
     containerFriendly: true,
     minContainerDepthInches: 8,
     tip: "Plant early — peas love cool weather. Provide support for climbing varieties.",
+    canFallPlant: true,
+    fallSowWeeksBeforeFirstFrost: 10,
+    fallStartIndoorsWeeksBeforeFirstFrost: 0,
+    seedsPerSpot: 2,
+    needsThinning: false,
   },
   {
     id: "corn",
@@ -249,6 +314,11 @@ export const plants: PlantData[] = [
     containerFriendly: false,
     minContainerDepthInches: 24,
     tip: "Plant in blocks (not rows) for proper pollination. Needs lots of space.",
+    canFallPlant: false,
+    fallSowWeeksBeforeFirstFrost: 0,
+    fallStartIndoorsWeeksBeforeFirstFrost: 0,
+    seedsPerSpot: 2,
+    needsThinning: true,
   },
   {
     id: "onion",
@@ -267,6 +337,11 @@ export const plants: PlantData[] = [
     containerFriendly: true,
     minContainerDepthInches: 6,
     tip: "Choose the right type for your latitude (short-day vs long-day).",
+    canFallPlant: false,
+    fallSowWeeksBeforeFirstFrost: 0,
+    fallStartIndoorsWeeksBeforeFirstFrost: 0,
+    seedsPerSpot: 1,
+    needsThinning: false,
   },
   {
     id: "garlic",
@@ -285,6 +360,11 @@ export const plants: PlantData[] = [
     containerFriendly: true,
     minContainerDepthInches: 8,
     tip: "Best planted in fall for spring harvest. Plant cloves pointy-end up.",
+    canFallPlant: false,
+    fallSowWeeksBeforeFirstFrost: 0,
+    fallStartIndoorsWeeksBeforeFirstFrost: 0,
+    seedsPerSpot: 1,
+    needsThinning: false,
   },
   {
     id: "beet",
@@ -303,6 +383,11 @@ export const plants: PlantData[] = [
     containerFriendly: true,
     minContainerDepthInches: 10,
     tip: "Eat both the roots and the greens! Thin seedlings to proper spacing.",
+    canFallPlant: true,
+    fallSowWeeksBeforeFirstFrost: 10,
+    fallStartIndoorsWeeksBeforeFirstFrost: 0,
+    seedsPerSpot: 2,
+    needsThinning: true,
   },
   {
     id: "potato",
@@ -321,6 +406,11 @@ export const plants: PlantData[] = [
     containerFriendly: true,
     minContainerDepthInches: 16,
     tip: "Hill soil around stems as plants grow to increase yield.",
+    canFallPlant: false,
+    fallSowWeeksBeforeFirstFrost: 0,
+    fallStartIndoorsWeeksBeforeFirstFrost: 0,
+    seedsPerSpot: 1,
+    needsThinning: false,
   },
   {
     id: "basil",
@@ -339,6 +429,11 @@ export const plants: PlantData[] = [
     containerFriendly: true,
     minContainerDepthInches: 8,
     tip: "Pinch off flower buds to keep leaves growing. Great companion for tomatoes.",
+    canFallPlant: false,
+    fallSowWeeksBeforeFirstFrost: 0,
+    fallStartIndoorsWeeksBeforeFirstFrost: 0,
+    seedsPerSpot: 3,
+    needsThinning: true,
   },
   {
     id: "parsley",
@@ -357,6 +452,11 @@ export const plants: PlantData[] = [
     containerFriendly: true,
     minContainerDepthInches: 8,
     tip: "Slow to germinate — be patient! Soak seeds overnight before planting.",
+    canFallPlant: true,
+    fallSowWeeksBeforeFirstFrost: 10,
+    fallStartIndoorsWeeksBeforeFirstFrost: 12,
+    seedsPerSpot: 3,
+    needsThinning: true,
   },
   {
     id: "cilantro",
@@ -375,6 +475,11 @@ export const plants: PlantData[] = [
     containerFriendly: true,
     minContainerDepthInches: 8,
     tip: "Bolts quickly in heat. Sow every 3 weeks for continuous harvest.",
+    canFallPlant: true,
+    fallSowWeeksBeforeFirstFrost: 8,
+    fallStartIndoorsWeeksBeforeFirstFrost: 0,
+    seedsPerSpot: 3,
+    needsThinning: true,
   },
   {
     id: "dill",
@@ -393,6 +498,11 @@ export const plants: PlantData[] = [
     containerFriendly: true,
     minContainerDepthInches: 8,
     tip: "Let some plants go to seed to attract beneficial insects.",
+    canFallPlant: true,
+    fallSowWeeksBeforeFirstFrost: 8,
+    fallStartIndoorsWeeksBeforeFirstFrost: 0,
+    seedsPerSpot: 3,
+    needsThinning: true,
   },
   {
     id: "broccoli",
@@ -411,6 +521,11 @@ export const plants: PlantData[] = [
     containerFriendly: true,
     minContainerDepthInches: 12,
     tip: "Harvest the main head before flowers open. Side shoots will keep producing.",
+    canFallPlant: true,
+    fallSowWeeksBeforeFirstFrost: 0,
+    fallStartIndoorsWeeksBeforeFirstFrost: 14,
+    seedsPerSpot: 2,
+    needsThinning: true,
   },
   {
     id: "cauliflower",
@@ -429,6 +544,11 @@ export const plants: PlantData[] = [
     containerFriendly: true,
     minContainerDepthInches: 12,
     tip: "Blanch heads by tying outer leaves over the developing head.",
+    canFallPlant: true,
+    fallSowWeeksBeforeFirstFrost: 0,
+    fallStartIndoorsWeeksBeforeFirstFrost: 14,
+    seedsPerSpot: 2,
+    needsThinning: true,
   },
   {
     id: "eggplant",
@@ -447,6 +567,11 @@ export const plants: PlantData[] = [
     containerFriendly: true,
     minContainerDepthInches: 14,
     tip: "Loves heat. Wait until soil is warm to transplant.",
+    canFallPlant: false,
+    fallSowWeeksBeforeFirstFrost: 0,
+    fallStartIndoorsWeeksBeforeFirstFrost: 0,
+    seedsPerSpot: 2,
+    needsThinning: true,
   },
   {
     id: "strawberry",
@@ -465,6 +590,11 @@ export const plants: PlantData[] = [
     containerFriendly: true,
     minContainerDepthInches: 8,
     tip: "Remove runners the first year to build strong root systems.",
+    canFallPlant: false,
+    fallSowWeeksBeforeFirstFrost: 0,
+    fallStartIndoorsWeeksBeforeFirstFrost: 0,
+    seedsPerSpot: 1,
+    needsThinning: false,
   },
 ];
 
