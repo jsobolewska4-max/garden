@@ -66,10 +66,12 @@ function areEnemies(a: PlantData, b: PlantData): boolean {
  * For 90" long with 24" spacing: floor(90 / 24) = 3 plants, with some edge padding.
  */
 function plantsAlongDimension(dimensionInches: number, spacingInches: number): number {
-  if (dimensionInches < spacingInches * 0.75) return 0;
+  // For intensive planting: allow a single centered plant if the dimension
+  // is at least 50% of the ideal spacing (common in raised beds / square-foot gardening)
+  if (dimensionInches < spacingInches * 0.5) return 0;
+  if (dimensionInches < spacingInches) return 1; // single plant, centered
   // First plant placed spacingInches/2 from edge, subsequent at spacingInches intervals
   const edgeOffset = spacingInches / 2;
-  if (dimensionInches < edgeOffset * 2) return dimensionInches >= spacingInches * 0.5 ? 1 : 0;
   const usableLength = dimensionInches - edgeOffset; // from first plant to far edge
   return Math.max(1, Math.floor(usableLength / spacingInches) + 1);
 }
@@ -137,8 +139,9 @@ function generateInGroundLayout(
       continue;
     }
 
-    // Place a reasonable number: fill available rows with this plant at proper spacing
-    const rowsForPlant = Math.min(spacingCells * 2, availableRows);
+    // Allocate rows proportional to what the plant actually needs (not double)
+    // For intensive planting, use just enough rows for 1 row of plants plus spacing
+    const rowsForPlant = Math.min(spacingCells, availableRows);
     const countY = plantsAlongDimension(rowsForPlant * cellSizeInches, plant.spacingInches);
 
     if (countY === 0) {
