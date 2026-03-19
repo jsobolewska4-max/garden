@@ -52,27 +52,27 @@ export default function ResultsPage({
     return groups;
   }, [timeline]);
 
-  // Build color map for plants
+  // Build color map for plants — high-contrast, perceptually distinct palette
   const plantColors = useMemo(() => {
     const colors = [
-      "bg-red-200",
-      "bg-blue-200",
-      "bg-yellow-200",
-      "bg-purple-200",
-      "bg-pink-200",
-      "bg-indigo-200",
-      "bg-teal-200",
-      "bg-orange-200",
-      "bg-cyan-200",
-      "bg-lime-200",
-      "bg-emerald-200",
-      "bg-fuchsia-200",
-      "bg-rose-200",
-      "bg-sky-200",
-      "bg-violet-200",
-      "bg-amber-200",
+      { bg: "bg-red-100", border: "border-red-400", text: "text-red-800" },
+      { bg: "bg-blue-100", border: "border-blue-400", text: "text-blue-800" },
+      { bg: "bg-amber-100", border: "border-amber-400", text: "text-amber-800" },
+      { bg: "bg-emerald-100", border: "border-emerald-400", text: "text-emerald-800" },
+      { bg: "bg-violet-100", border: "border-violet-400", text: "text-violet-800" },
+      { bg: "bg-orange-100", border: "border-orange-400", text: "text-orange-800" },
+      { bg: "bg-cyan-100", border: "border-cyan-400", text: "text-cyan-800" },
+      { bg: "bg-pink-100", border: "border-pink-400", text: "text-pink-800" },
+      { bg: "bg-lime-100", border: "border-lime-400", text: "text-lime-800" },
+      { bg: "bg-sky-100", border: "border-sky-400", text: "text-sky-800" },
+      { bg: "bg-rose-100", border: "border-rose-400", text: "text-rose-800" },
+      { bg: "bg-teal-100", border: "border-teal-400", text: "text-teal-800" },
+      { bg: "bg-indigo-100", border: "border-indigo-400", text: "text-indigo-800" },
+      { bg: "bg-yellow-100", border: "border-yellow-400", text: "text-yellow-800" },
+      { bg: "bg-fuchsia-100", border: "border-fuchsia-400", text: "text-fuchsia-800" },
+      { bg: "bg-green-100", border: "border-green-400", text: "text-green-800" },
     ];
-    const map: Record<string, string> = {};
+    const map: Record<string, typeof colors[0]> = {};
     selectedPlants.forEach((p, i) => {
       map[p.id] = colors[i % colors.length];
     });
@@ -131,15 +131,18 @@ export default function ResultsPage({
         <div className="mt-4">
           <div className="text-sm font-medium text-gray-600 mb-2">Plant counts based on your space:</div>
           <div className="flex flex-wrap gap-2">
-            {allAllocations.map((alloc) => (
-              <div
-                key={`${alloc.plant.id}-${alloc.containerIndex ?? "all"}`}
-                className={`inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium ${plantColors[alloc.plant.id]} text-gray-700`}
-              >
-                {alloc.plant.emoji} {alloc.plant.name} &times; {alloc.count}
-                <span className="text-gray-500 ml-1">({alloc.plant.spacingInches}&quot; apart)</span>
-              </div>
-            ))}
+            {allAllocations.map((alloc) => {
+              const color = plantColors[alloc.plant.id];
+              return (
+                <div
+                  key={`${alloc.plant.id}-${alloc.containerIndex ?? "all"}`}
+                  className={`inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium border ${color?.bg || "bg-gray-100"} ${color?.border || "border-gray-300"} text-gray-700`}
+                >
+                  {alloc.plant.emoji} {alloc.plant.name} &times; {alloc.count}
+                  <span className="text-gray-500 ml-1">({alloc.plant.spacingInches}&quot; apart)</span>
+                </div>
+              );
+            })}
           </div>
         </div>
 
@@ -261,68 +264,74 @@ export default function ResultsPage({
   );
 }
 
+
 /**
- * Compute distance annotations (in inches) between adjacent plants on the grid.
- * Returns horizontal and vertical distance markers to render on the layout.
+ * Cluster contiguous same-plant cells into rectangular regions for cleaner rendering.
+ * Uses greedy maximal-rectangle: scan L→R, T→B; for each unvisited plant cell,
+ * expand right then down while all cells match the same plant.
  */
-function computeDistanceAnnotations(
-  plantInstances: { plant: PlantData; row: number; col: number }[],
-  cellSizeInches: number
-): { r1: number; c1: number; r2: number; c2: number; distInches: number }[] {
-  if (plantInstances.length < 2) return [];
+interface PlantCluster {
+  plantId: string;
+  emoji: string;
+  name: string;
+  rowStart: number;
+  colStart: number;
+  rowSpan: number;
+  colSpan: number;
+}
 
-  const annotations: { r1: number; c1: number; r2: number; c2: number; distInches: number }[] = [];
-  const seen = new Set<string>();
+function clusterGrid(
+  grid: (string | null)[][],
+  rows: number,
+  cols: number,
+  plantLookup: Record<string, PlantData>
+): PlantCluster[] {
+  const visited: boolean[][] = Array.from({ length: rows }, () =>
+    Array(cols).fill(false)
+  );
+  const clusters: PlantCluster[] = [];
 
-  // Sort instances by row then column
-  const sorted = [...plantInstances].sort((a, b) => a.row - b.row || a.col - b.col);
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      if (visited[r][c] || !grid[r][c]) continue;
+      const plantId = grid[r][c]!;
 
-  // For each plant, find the nearest neighbor to its right and below
-  for (const inst of sorted) {
-    // Nearest to the right (same row)
-    let nearestRight: typeof inst | null = null;
-    for (const other of sorted) {
-      if (other.row === inst.row && other.col > inst.col) {
-        if (!nearestRight || other.col < nearestRight.col) {
-          nearestRight = other;
+      // Expand right
+      let maxC = c;
+      while (maxC + 1 < cols && grid[r][maxC + 1] === plantId && !visited[r][maxC + 1]) {
+        maxC++;
+      }
+
+      // Expand down while entire row matches
+      let maxR = r;
+      outer: while (maxR + 1 < rows) {
+        for (let cc = c; cc <= maxC; cc++) {
+          if (grid[maxR + 1][cc] !== plantId || visited[maxR + 1][cc]) break outer;
+        }
+        maxR++;
+      }
+
+      // Mark visited
+      for (let rr = r; rr <= maxR; rr++) {
+        for (let cc = c; cc <= maxC; cc++) {
+          visited[rr][cc] = true;
         }
       }
-    }
-    if (nearestRight) {
-      const key = `${inst.row},${inst.col}-${nearestRight.row},${nearestRight.col}`;
-      if (!seen.has(key)) {
-        seen.add(key);
-        annotations.push({
-          r1: inst.row, c1: inst.col,
-          r2: nearestRight.row, c2: nearestRight.col,
-          distInches: (nearestRight.col - inst.col) * cellSizeInches,
-        });
-      }
-    }
 
-    // Nearest below (same column)
-    let nearestBelow: typeof inst | null = null;
-    for (const other of sorted) {
-      if (other.col === inst.col && other.row > inst.row) {
-        if (!nearestBelow || other.row < nearestBelow.row) {
-          nearestBelow = other;
-        }
-      }
-    }
-    if (nearestBelow) {
-      const key = `${inst.row},${inst.col}-${nearestBelow.row},${nearestBelow.col}`;
-      if (!seen.has(key)) {
-        seen.add(key);
-        annotations.push({
-          r1: inst.row, c1: inst.col,
-          r2: nearestBelow.row, c2: nearestBelow.col,
-          distInches: (nearestBelow.row - inst.row) * cellSizeInches,
-        });
-      }
+      const plant = plantLookup[plantId];
+      clusters.push({
+        plantId,
+        emoji: plant?.emoji || "",
+        name: plant?.name || plantId,
+        rowStart: r,
+        colStart: c,
+        rowSpan: maxR - r + 1,
+        colSpan: maxC - c + 1,
+      });
     }
   }
 
-  return annotations;
+  return clusters;
 }
 
 function InGroundGrid({
@@ -331,113 +340,70 @@ function InGroundGrid({
   selectedPlants,
 }: {
   layout: LayoutResult;
-  plantColors: Record<string, string>;
+  plantColors: Record<string, typeof plantColorType>;
   selectedPlants: PlantData[];
 }) {
   if (layout.rows === 0 || layout.cols === 0) return null;
 
-  // Calculate pixel size per cell — scale to reasonable display size
   const maxGridWidth = 500;
   const cellPx = Math.min(20, Math.floor(maxGridWidth / layout.cols));
+  const gapPx = 1;
 
-  const annotations = computeDistanceAnnotations(layout.plantInstances, layout.cellSizeInches);
+  const plantLookup: Record<string, PlantData> = {};
+  for (const p of selectedPlants) plantLookup[p.id] = p;
+
+  const clusters = clusterGrid(layout.grid, layout.rows, layout.cols, plantLookup);
 
   return (
     <div className="overflow-x-auto">
       <div className="inline-block border-2 border-amber-700 rounded-lg bg-amber-50 p-2">
         <div className="text-xs text-gray-400 text-center mb-1">&#8593; North (tall plants)</div>
-        <div style={{ position: "relative", display: "inline-block" }}>
-          <div
-            className="grid"
-            style={{
-              gridTemplateColumns: `repeat(${layout.cols}, ${cellPx}px)`,
-              gridTemplateRows: `repeat(${layout.rows}, ${cellPx}px)`,
-              gap: "1px",
-            }}
-          >
-            {Array.from({ length: layout.rows }).map((_, r) =>
-              Array.from({ length: layout.cols }).map((_, c) => {
-                const plantId = layout.grid[r][c];
-                const plant = plantId
-                  ? selectedPlants.find((p) => p.id === plantId)
-                  : null;
-                const isPlantInstance = plantId !== null;
-                return (
-                  <div
-                    key={`${r}-${c}`}
-                    className={`flex items-center justify-center ${
-                      isPlantInstance
-                        ? plantColors[plantId!] || "bg-gray-200"
-                        : "bg-amber-100/30"
-                    }`}
-                    style={{ width: cellPx, height: cellPx, borderRadius: isPlantInstance ? "50%" : "1px" }}
-                    title={plant ? `${plant.name} (${plant.spacingInches}" spacing)` : ""}
-                  >
-                    {isPlantInstance && cellPx >= 14 && (
-                      <span style={{ fontSize: Math.max(10, cellPx - 4) }}>{plant?.emoji}</span>
-                    )}
-                  </div>
-                );
-              })
-            )}
-          </div>
-          {/* Distance annotations between plants */}
-          {annotations.map((a, i) => {
-            const gapPx = 1; // matches grid gap
-            const isHorizontal = a.r1 === a.r2;
-            if (isHorizontal) {
-              // Horizontal distance marker between two plants on the same row
-              const left = a.c1 * (cellPx + gapPx) + cellPx;
-              const top = a.r1 * (cellPx + gapPx) + cellPx / 2;
-              const width = (a.c2 - a.c1) * (cellPx + gapPx) - cellPx;
-              if (width < 16) return null; // too small to show label
-              return (
-                <div
-                  key={`h-${i}`}
-                  style={{
-                    position: "absolute",
-                    left,
-                    top: top - 5,
-                    width,
-                    height: 10,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    pointerEvents: "none",
-                  }}
-                >
-                  <span className="text-gray-500 font-medium" style={{ fontSize: 8, lineHeight: 1, background: "rgba(255,251,235,0.85)", padding: "0 2px", borderRadius: 2 }}>
-                    {a.distInches}&quot;
-                  </span>
-                </div>
-              );
-            } else {
-              // Vertical distance marker between two plants on the same column
-              const left = a.c1 * (cellPx + gapPx) + cellPx / 2;
-              const top = a.r1 * (cellPx + gapPx) + cellPx;
-              const height = (a.r2 - a.r1) * (cellPx + gapPx) - cellPx;
-              if (height < 16) return null;
-              return (
-                <div
-                  key={`v-${i}`}
-                  style={{
-                    position: "absolute",
-                    left: left - 8,
-                    top,
-                    width: 16,
-                    height,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    pointerEvents: "none",
-                  }}
-                >
-                  <span className="text-gray-500 font-medium" style={{ fontSize: 8, lineHeight: 1, background: "rgba(255,251,235,0.85)", padding: "0 2px", borderRadius: 2, writingMode: "vertical-rl" }}>
-                    {a.distInches}&quot;
-                  </span>
-                </div>
-              );
-            }
+        <div
+          style={{
+            position: "relative",
+            display: "grid",
+            gridTemplateColumns: `repeat(${layout.cols}, ${cellPx}px)`,
+            gridTemplateRows: `repeat(${layout.rows}, ${cellPx}px)`,
+            gap: `${gapPx}px`,
+          }}
+        >
+          {/* Empty cell background */}
+          {Array.from({ length: layout.rows }).map((_, r) =>
+            Array.from({ length: layout.cols }).map((_, c) => (
+              <div
+                key={`bg-${r}-${c}`}
+                style={{
+                  gridRow: r + 1,
+                  gridColumn: c + 1,
+                  width: cellPx,
+                  height: cellPx,
+                }}
+                className="bg-amber-100/30"
+              />
+            ))
+          )}
+          {/* Plant clusters */}
+          {clusters.map((cl, i) => {
+            const color = plantColors[cl.plantId];
+            const clusterWidthPx = cl.colSpan * cellPx + (cl.colSpan - 1) * gapPx;
+            const clusterHeightPx = cl.rowSpan * cellPx + (cl.rowSpan - 1) * gapPx;
+            const fontSize = Math.min(clusterWidthPx, clusterHeightPx, 28) * 0.7;
+            return (
+              <div
+                key={`cl-${i}`}
+                className={`flex items-center justify-center border rounded-md ${color?.bg || "bg-gray-100"} ${color?.border || "border-gray-300"}`}
+                style={{
+                  gridRow: `${cl.rowStart + 1} / span ${cl.rowSpan}`,
+                  gridColumn: `${cl.colStart + 1} / span ${cl.colSpan}`,
+                  zIndex: 1,
+                }}
+                title={`${cl.name} (${plantLookup[cl.plantId]?.spacingInches}" spacing)`}
+              >
+                {fontSize >= 8 && (
+                  <span style={{ fontSize: Math.max(8, fontSize), lineHeight: 1 }}>{cl.emoji}</span>
+                )}
+              </div>
+            );
           })}
         </div>
         <div className="text-xs text-gray-400 text-center mt-1">&#8595; South</div>
@@ -449,6 +415,9 @@ function InGroundGrid({
   );
 }
 
+// Type helper for plantColors values
+const plantColorType = { bg: "", border: "", text: "" };
+
 function ContainerGrids({
   layout,
   plantColors,
@@ -456,19 +425,24 @@ function ContainerGrids({
   gardenConfig,
 }: {
   layout: LayoutResult;
-  plantColors: Record<string, string>;
+  plantColors: Record<string, typeof plantColorType>;
   selectedPlants: PlantData[];
   gardenConfig: GardenConfig;
 }) {
   if (!layout.containerLayouts) return null;
 
+  const plantLookup: Record<string, PlantData> = {};
+  for (const p of selectedPlants) plantLookup[p.id] = p;
+
   return (
     <div className="space-y-6">
       {layout.containerLayouts.map((cl) => {
         const container = gardenConfig.containers?.[cl.containerIndex];
-        // Scale cells to reasonable size
-        const maxWidth = 400;
+        const maxWidth = 600;
         const cellPx = Math.min(24, Math.floor(maxWidth / cl.cols));
+        const gapPx = 1;
+
+        const clusters = clusterGrid(cl.grid, cl.rows, cl.cols, plantLookup);
 
         return (
           <div key={cl.containerIndex}>
@@ -482,78 +456,58 @@ function ContainerGrids({
               )}
             </div>
             <div className="inline-block border-2 border-amber-700 rounded-lg bg-amber-50 p-2">
-              {/* Dimension label top */}
               <div className="text-xs text-gray-400 text-center mb-1">
                 {container?.widthInches}&quot; wide
               </div>
               <div className="flex items-start gap-1">
-                <div style={{ position: "relative", display: "inline-block" }}>
-                  <div
-                    className="grid"
-                    style={{
-                      gridTemplateColumns: `repeat(${cl.cols}, ${cellPx}px)`,
-                      gridTemplateRows: `repeat(${cl.rows}, ${cellPx}px)`,
-                      gap: "1px",
-                    }}
-                  >
-                    {Array.from({ length: cl.rows }).map((_, r) =>
-                      Array.from({ length: cl.cols }).map((_, c) => {
-                        const plantId = cl.grid[r][c];
-                        const plant = plantId
-                          ? selectedPlants.find((p) => p.id === plantId)
-                          : null;
-                        const isPlantInstance = plantId !== null;
-                        return (
-                          <div
-                            key={`${r}-${c}`}
-                            className={`flex items-center justify-center ${
-                              isPlantInstance
-                                ? plantColors[plantId!] || "bg-gray-200"
-                                : "bg-amber-100/30"
-                            }`}
-                            style={{
-                              width: cellPx,
-                              height: cellPx,
-                              borderRadius: isPlantInstance ? "50%" : "1px",
-                            }}
-                            title={plant ? `${plant.name} (${plant.spacingInches}" spacing)` : ""}
-                          >
-                            {isPlantInstance && cellPx >= 14 && (
-                              <span style={{ fontSize: Math.max(10, cellPx - 6) }}>{plant?.emoji}</span>
-                            )}
-                          </div>
-                        );
-                      })
-                    )}
-                  </div>
-                  {/* Distance annotations */}
-                  {computeDistanceAnnotations(cl.plantInstances, layout.cellSizeInches).map((a, i) => {
-                    const gapPx = 1;
-                    const isHorizontal = a.r1 === a.r2;
-                    if (isHorizontal) {
-                      const left = a.c1 * (cellPx + gapPx) + cellPx;
-                      const top = a.r1 * (cellPx + gapPx) + cellPx / 2;
-                      const width = (a.c2 - a.c1) * (cellPx + gapPx) - cellPx;
-                      if (width < 16) return null;
-                      return (
-                        <div key={`h-${i}`} style={{ position: "absolute", left, top: top - 5, width, height: 10, display: "flex", alignItems: "center", justifyContent: "center", pointerEvents: "none" }}>
-                          <span className="text-gray-500 font-medium" style={{ fontSize: 8, lineHeight: 1, background: "rgba(255,251,235,0.85)", padding: "0 2px", borderRadius: 2 }}>{a.distInches}&quot;</span>
-                        </div>
-                      );
-                    } else {
-                      const left = a.c1 * (cellPx + gapPx) + cellPx / 2;
-                      const top = a.r1 * (cellPx + gapPx) + cellPx;
-                      const height = (a.r2 - a.r1) * (cellPx + gapPx) - cellPx;
-                      if (height < 16) return null;
-                      return (
-                        <div key={`v-${i}`} style={{ position: "absolute", left: left - 8, top, width: 16, height, display: "flex", alignItems: "center", justifyContent: "center", pointerEvents: "none" }}>
-                          <span className="text-gray-500 font-medium" style={{ fontSize: 8, lineHeight: 1, background: "rgba(255,251,235,0.85)", padding: "0 2px", borderRadius: 2, writingMode: "vertical-rl" as const }}>{a.distInches}&quot;</span>
-                        </div>
-                      );
-                    }
+                <div
+                  style={{
+                    position: "relative",
+                    display: "grid",
+                    gridTemplateColumns: `repeat(${cl.cols}, ${cellPx}px)`,
+                    gridTemplateRows: `repeat(${cl.rows}, ${cellPx}px)`,
+                    gap: `${gapPx}px`,
+                  }}
+                >
+                  {/* Empty cell background */}
+                  {Array.from({ length: cl.rows }).map((_, r) =>
+                    Array.from({ length: cl.cols }).map((_, c) => (
+                      <div
+                        key={`bg-${r}-${c}`}
+                        style={{
+                          gridRow: r + 1,
+                          gridColumn: c + 1,
+                          width: cellPx,
+                          height: cellPx,
+                        }}
+                        className="bg-amber-100/30"
+                      />
+                    ))
+                  )}
+                  {/* Plant clusters */}
+                  {clusters.map((cluster, i) => {
+                    const color = plantColors[cluster.plantId];
+                    const clusterWidthPx = cluster.colSpan * cellPx + (cluster.colSpan - 1) * gapPx;
+                    const clusterHeightPx = cluster.rowSpan * cellPx + (cluster.rowSpan - 1) * gapPx;
+                    const fontSize = Math.min(clusterWidthPx, clusterHeightPx, 28) * 0.7;
+                    return (
+                      <div
+                        key={`cl-${i}`}
+                        className={`flex items-center justify-center border rounded-md ${color?.bg || "bg-gray-100"} ${color?.border || "border-gray-300"}`}
+                        style={{
+                          gridRow: `${cluster.rowStart + 1} / span ${cluster.rowSpan}`,
+                          gridColumn: `${cluster.colStart + 1} / span ${cluster.colSpan}`,
+                          zIndex: 1,
+                        }}
+                        title={`${cluster.name} (${plantLookup[cluster.plantId]?.spacingInches}" spacing)`}
+                      >
+                        {fontSize >= 8 && (
+                          <span style={{ fontSize: Math.max(8, fontSize), lineHeight: 1 }}>{cluster.emoji}</span>
+                        )}
+                      </div>
+                    );
                   })}
                 </div>
-                {/* Dimension label side */}
                 <div className="text-xs text-gray-400 flex items-center" style={{ writingMode: "vertical-rl" }}>
                   {container?.lengthInches}&quot; long
                 </div>
@@ -566,14 +520,17 @@ function ContainerGrids({
             {/* Per-container plant summary */}
             {cl.plantAllocations.length > 0 && (
               <div className="mt-2 flex flex-wrap gap-1">
-                {cl.plantAllocations.map((alloc) => (
-                  <span
-                    key={alloc.plant.id}
-                    className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs ${plantColors[alloc.plant.id]} text-gray-700`}
-                  >
-                    {alloc.plant.emoji} {alloc.count} {alloc.plant.name} ({alloc.plant.spacingInches}&quot; apart)
-                  </span>
-                ))}
+                {cl.plantAllocations.map((alloc) => {
+                  const color = plantColors[alloc.plant.id];
+                  return (
+                    <span
+                      key={alloc.plant.id}
+                      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs border ${color?.bg || "bg-gray-100"} ${color?.border || "border-gray-300"} text-gray-700`}
+                    >
+                      {alloc.plant.emoji} {alloc.count} {alloc.plant.name} ({alloc.plant.spacingInches}&quot; apart)
+                    </span>
+                  );
+                })}
               </div>
             )}
           </div>

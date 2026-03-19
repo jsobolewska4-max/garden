@@ -76,19 +76,6 @@ function plantsAlongDimension(dimensionInches: number, spacingInches: number): n
   return Math.max(1, Math.floor(usableLength / spacingInches) + 1);
 }
 
-/**
- * Calculate how many of a plant fits in a rectangular area
- */
-function plantsInArea(
-  widthInches: number,
-  lengthInches: number,
-  spacingInches: number
-): { countX: number; countY: number; total: number } {
-  const countX = plantsAlongDimension(widthInches, spacingInches);
-  const countY = plantsAlongDimension(lengthInches, spacingInches);
-  return { countX, countY, total: countX * countY };
-}
-
 // Use a 3-inch grid for finer placement resolution
 const CELL_SIZE = 3;
 
