@@ -104,9 +104,9 @@ export default function ResultsPage({
         </h3>
 
         {gardenConfig.type === "inground" ? (
-          <InGroundGrid layout={layout} plantColors={plantColors} selectedPlants={selectedPlants} />
+          <InGroundGrid layout={layout} plantColors={plantColors} />
         ) : (
-          <ContainerGrids layout={layout} plantColors={plantColors} selectedPlants={selectedPlants} gardenConfig={gardenConfig} />
+          <ContainerGrids layout={layout} plantColors={plantColors} gardenConfig={gardenConfig} />
         )}
 
         {layout.unplacedPlants.length > 0 && (
@@ -126,25 +126,6 @@ export default function ResultsPage({
             </p>
           </div>
         )}
-
-        {/* Plant legend with counts */}
-        <div className="mt-4">
-          <div className="text-sm font-medium text-gray-600 mb-2">Plant counts based on your space:</div>
-          <div className="flex flex-wrap gap-2">
-            {allAllocations.map((alloc) => {
-              const color = plantColors[alloc.plant.id];
-              return (
-                <div
-                  key={`${alloc.plant.id}-${alloc.containerIndex ?? "all"}`}
-                  className={`inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium border ${color?.bg || "bg-gray-100"} ${color?.border || "border-gray-300"} text-gray-700`}
-                >
-                  {alloc.plant.emoji} {alloc.plant.name} &times; {alloc.count}
-                  <span className="text-gray-500 ml-1">({alloc.plant.spacingInches}&quot; apart)</span>
-                </div>
-              );
-            })}
-          </div>
-        </div>
 
         {/* Companion planting tips */}
         <CompanionTips selectedPlants={selectedPlants} />
@@ -266,183 +247,104 @@ export default function ResultsPage({
 
 
 /**
- * Cluster contiguous same-plant cells into rectangular regions for cleaner rendering.
- * Uses greedy maximal-rectangle: scan L→R, T→B; for each unvisited plant cell,
- * expand right then down while all cells match the same plant.
+ * Simplified zone-based layout: shows proportional colored blocks per plant type
+ * instead of rendering every 3" cell. Much cleaner and communicates the same info.
  */
-interface PlantCluster {
-  plantId: string;
-  emoji: string;
-  name: string;
-  rowStart: number;
-  colStart: number;
-  rowSpan: number;
-  colSpan: number;
-}
-
-function clusterGrid(
-  grid: (string | null)[][],
-  rows: number,
-  cols: number,
-  plantLookup: Record<string, PlantData>
-): PlantCluster[] {
-  const visited: boolean[][] = Array.from({ length: rows }, () =>
-    Array(cols).fill(false)
-  );
-  const clusters: PlantCluster[] = [];
-
-  for (let r = 0; r < rows; r++) {
-    for (let c = 0; c < cols; c++) {
-      if (visited[r][c] || !grid[r][c]) continue;
-      const plantId = grid[r][c]!;
-
-      // Expand right
-      let maxC = c;
-      while (maxC + 1 < cols && grid[r][maxC + 1] === plantId && !visited[r][maxC + 1]) {
-        maxC++;
-      }
-
-      // Expand down while entire row matches
-      let maxR = r;
-      outer: while (maxR + 1 < rows) {
-        for (let cc = c; cc <= maxC; cc++) {
-          if (grid[maxR + 1][cc] !== plantId || visited[maxR + 1][cc]) break outer;
-        }
-        maxR++;
-      }
-
-      // Mark visited
-      for (let rr = r; rr <= maxR; rr++) {
-        for (let cc = c; cc <= maxC; cc++) {
-          visited[rr][cc] = true;
-        }
-      }
-
-      const plant = plantLookup[plantId];
-      clusters.push({
-        plantId,
-        emoji: plant?.emoji || "",
-        name: plant?.name || plantId,
-        rowStart: r,
-        colStart: c,
-        rowSpan: maxR - r + 1,
-        colSpan: maxC - c + 1,
-      });
-    }
-  }
-
-  return clusters;
-}
-
-function InGroundGrid({
-  layout,
+function PlantZoneMap({
+  allocations,
   plantColors,
-  selectedPlants,
+  widthLabel,
+  lengthLabel,
 }: {
-  layout: LayoutResult;
-  plantColors: Record<string, typeof plantColorType>;
-  selectedPlants: PlantData[];
+  allocations: { plant: PlantData; count: number }[];
+  plantColors: Record<string, { bg: string; border: string; text: string }>;
+  widthLabel: string;
+  lengthLabel: string;
 }) {
-  if (layout.rows === 0 || layout.cols === 0) return null;
+  if (allocations.length === 0) return null;
 
-  const maxGridWidth = 500;
-  const cellPx = Math.min(20, Math.floor(maxGridWidth / layout.cols));
-  const gapPx = 1;
-
-  const plantLookup: Record<string, PlantData> = {};
-  for (const p of selectedPlants) plantLookup[p.id] = p;
-
-  const clusters = clusterGrid(layout.grid, layout.rows, layout.cols, plantLookup);
+  // Calculate proportional area for each plant: count × spacing²
+  const totalArea = allocations.reduce(
+    (sum, a) => sum + a.count * a.plant.spacingInches * a.plant.spacingInches,
+    0
+  );
 
   return (
-    <div className="overflow-x-auto">
-      <div className="inline-block border-2 border-amber-700 rounded-lg bg-amber-50 p-2">
-        <div className="text-xs text-gray-400 text-center mb-1">&#8593; North (tall plants)</div>
-        <div
-          style={{
-            position: "relative",
-            display: "grid",
-            gridTemplateColumns: `repeat(${layout.cols}, ${cellPx}px)`,
-            gridTemplateRows: `repeat(${layout.rows}, ${cellPx}px)`,
-            gap: `${gapPx}px`,
-          }}
-        >
-          {/* Empty cell background */}
-          {Array.from({ length: layout.rows }).map((_, r) =>
-            Array.from({ length: layout.cols }).map((_, c) => (
-              <div
-                key={`bg-${r}-${c}`}
-                style={{
-                  gridRow: r + 1,
-                  gridColumn: c + 1,
-                  width: cellPx,
-                  height: cellPx,
-                }}
-                className="bg-amber-100/30"
-              />
-            ))
-          )}
-          {/* Plant clusters */}
-          {clusters.map((cl, i) => {
-            const color = plantColors[cl.plantId];
-            const clusterWidthPx = cl.colSpan * cellPx + (cl.colSpan - 1) * gapPx;
-            const clusterHeightPx = cl.rowSpan * cellPx + (cl.rowSpan - 1) * gapPx;
-            const fontSize = Math.min(clusterWidthPx, clusterHeightPx, 28) * 0.7;
+    <div className="inline-block border-2 border-amber-700 rounded-lg bg-amber-50 p-3">
+      <div className="flex items-center justify-between text-xs text-gray-400 mb-2">
+        <span>{widthLabel}</span>
+      </div>
+      <div className="flex items-start gap-1">
+        <div className="flex flex-wrap gap-1.5" style={{ maxWidth: 520 }}>
+          {allocations.map((alloc) => {
+            const areaFraction = (alloc.count * alloc.plant.spacingInches * alloc.plant.spacingInches) / totalArea;
+            const minWidth = 80;
+            const maxWidth = 520;
+            const width = Math.max(minWidth, Math.round(areaFraction * maxWidth));
+            const color = plantColors[alloc.plant.id];
             return (
               <div
-                key={`cl-${i}`}
-                className={`flex items-center justify-center border rounded-md ${color?.bg || "bg-gray-100"} ${color?.border || "border-gray-300"}`}
-                style={{
-                  gridRow: `${cl.rowStart + 1} / span ${cl.rowSpan}`,
-                  gridColumn: `${cl.colStart + 1} / span ${cl.colSpan}`,
-                  zIndex: 1,
-                }}
-                title={`${cl.name} (${plantLookup[cl.plantId]?.spacingInches}" spacing)`}
+                key={alloc.plant.id}
+                className={`flex flex-col items-center justify-center rounded-lg border-2 px-2 py-3 ${color?.bg || "bg-gray-100"} ${color?.border || "border-gray-300"}`}
+                style={{ width, minHeight: 70 }}
+                title={`${alloc.plant.name}: ${alloc.count} plants, ${alloc.plant.spacingInches}" spacing`}
               >
-                {fontSize >= 8 && (
-                  <span style={{ fontSize: Math.max(8, fontSize), lineHeight: 1 }}>{cl.emoji}</span>
-                )}
+                <span className="text-2xl mb-1">{alloc.plant.emoji}</span>
+                <span className="text-xs font-semibold text-gray-700 text-center leading-tight">
+                  {alloc.plant.name}
+                </span>
+                <span className="text-xs text-gray-500">
+                  {alloc.count} plants &middot; {alloc.plant.spacingInches}&quot;
+                </span>
               </div>
             );
           })}
         </div>
-        <div className="text-xs text-gray-400 text-center mt-1">&#8595; South</div>
-        <div className="text-xs text-gray-400 text-center">
-          Each cell = {layout.cellSizeInches}&quot; &middot; Grid = {layout.cols * layout.cellSizeInches}&quot; &times; {layout.rows * layout.cellSizeInches}&quot;
+        <div className="text-xs text-gray-400 flex items-center ml-1" style={{ writingMode: "vertical-rl" }}>
+          {lengthLabel}
         </div>
       </div>
     </div>
   );
 }
 
-// Type helper for plantColors values
-const plantColorType = { bg: "", border: "", text: "" };
+function InGroundGrid({
+  layout,
+  plantColors,
+}: {
+  layout: LayoutResult;
+  plantColors: Record<string, { bg: string; border: string; text: string }>;
+}) {
+  if (layout.plantAllocations.length === 0) return null;
+
+  const widthInches = layout.cols * layout.cellSizeInches;
+  const lengthInches = layout.rows * layout.cellSizeInches;
+
+  return (
+    <PlantZoneMap
+      allocations={layout.plantAllocations}
+      plantColors={plantColors}
+      widthLabel={`${widthInches}" wide`}
+      lengthLabel={`${lengthInches}" long`}
+    />
+  );
+}
 
 function ContainerGrids({
   layout,
   plantColors,
-  selectedPlants,
   gardenConfig,
 }: {
   layout: LayoutResult;
-  plantColors: Record<string, typeof plantColorType>;
-  selectedPlants: PlantData[];
+  plantColors: Record<string, { bg: string; border: string; text: string }>;
   gardenConfig: GardenConfig;
 }) {
   if (!layout.containerLayouts) return null;
-
-  const plantLookup: Record<string, PlantData> = {};
-  for (const p of selectedPlants) plantLookup[p.id] = p;
 
   return (
     <div className="space-y-6">
       {layout.containerLayouts.map((cl) => {
         const container = gardenConfig.containers?.[cl.containerIndex];
-        const maxWidth = 600;
-        const cellPx = Math.min(24, Math.floor(maxWidth / cl.cols));
-        const gapPx = 1;
-
-        const clusters = clusterGrid(cl.grid, cl.rows, cl.cols, plantLookup);
 
         return (
           <div key={cl.containerIndex}>
@@ -455,84 +357,12 @@ function ContainerGrids({
                 </span>
               )}
             </div>
-            <div className="inline-block border-2 border-amber-700 rounded-lg bg-amber-50 p-2">
-              <div className="text-xs text-gray-400 text-center mb-1">
-                {container?.widthInches}&quot; wide
-              </div>
-              <div className="flex items-start gap-1">
-                <div
-                  style={{
-                    position: "relative",
-                    display: "grid",
-                    gridTemplateColumns: `repeat(${cl.cols}, ${cellPx}px)`,
-                    gridTemplateRows: `repeat(${cl.rows}, ${cellPx}px)`,
-                    gap: `${gapPx}px`,
-                  }}
-                >
-                  {/* Empty cell background */}
-                  {Array.from({ length: cl.rows }).map((_, r) =>
-                    Array.from({ length: cl.cols }).map((_, c) => (
-                      <div
-                        key={`bg-${r}-${c}`}
-                        style={{
-                          gridRow: r + 1,
-                          gridColumn: c + 1,
-                          width: cellPx,
-                          height: cellPx,
-                        }}
-                        className="bg-amber-100/30"
-                      />
-                    ))
-                  )}
-                  {/* Plant clusters */}
-                  {clusters.map((cluster, i) => {
-                    const color = plantColors[cluster.plantId];
-                    const clusterWidthPx = cluster.colSpan * cellPx + (cluster.colSpan - 1) * gapPx;
-                    const clusterHeightPx = cluster.rowSpan * cellPx + (cluster.rowSpan - 1) * gapPx;
-                    const fontSize = Math.min(clusterWidthPx, clusterHeightPx, 28) * 0.7;
-                    return (
-                      <div
-                        key={`cl-${i}`}
-                        className={`flex items-center justify-center border rounded-md ${color?.bg || "bg-gray-100"} ${color?.border || "border-gray-300"}`}
-                        style={{
-                          gridRow: `${cluster.rowStart + 1} / span ${cluster.rowSpan}`,
-                          gridColumn: `${cluster.colStart + 1} / span ${cluster.colSpan}`,
-                          zIndex: 1,
-                        }}
-                        title={`${cluster.name} (${plantLookup[cluster.plantId]?.spacingInches}" spacing)`}
-                      >
-                        {fontSize >= 8 && (
-                          <span style={{ fontSize: Math.max(8, fontSize), lineHeight: 1 }}>{cluster.emoji}</span>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-                <div className="text-xs text-gray-400 flex items-center" style={{ writingMode: "vertical-rl" }}>
-                  {container?.lengthInches}&quot; long
-                </div>
-              </div>
-              <div className="text-xs text-gray-400 text-center mt-1">
-                Each cell = {layout.cellSizeInches}&quot;
-              </div>
-            </div>
-
-            {/* Per-container plant summary */}
-            {cl.plantAllocations.length > 0 && (
-              <div className="mt-2 flex flex-wrap gap-1">
-                {cl.plantAllocations.map((alloc) => {
-                  const color = plantColors[alloc.plant.id];
-                  return (
-                    <span
-                      key={alloc.plant.id}
-                      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs border ${color?.bg || "bg-gray-100"} ${color?.border || "border-gray-300"} text-gray-700`}
-                    >
-                      {alloc.plant.emoji} {alloc.count} {alloc.plant.name} ({alloc.plant.spacingInches}&quot; apart)
-                    </span>
-                  );
-                })}
-              </div>
-            )}
+            <PlantZoneMap
+              allocations={cl.plantAllocations}
+              plantColors={plantColors}
+              widthLabel={`${container?.widthInches}" wide`}
+              lengthLabel={`${container?.lengthInches}" long`}
+            />
           </div>
         );
       })}

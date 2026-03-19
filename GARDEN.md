@@ -3,7 +3,7 @@
 ## Project Overview
 A web app that helps novice gardeners plan their vegetable gardens by providing personalized garden layouts and planting timelines based on their location, garden dimensions, and desired plants.
 
-## Status: V3 Updates Complete (intensive spacing, variety-maximizing layout, zone fixes)
+## Status: V4 Updates Complete (simplified layout, timeline fixes, marigolds)
 
 ## Tech Stack
 - Next.js 16 with TypeScript
@@ -12,6 +12,32 @@ A web app that helps novice gardeners plan their vegetable gardens by providing 
 - Deployable to Vercel
 
 ## Session Log
+
+### Session 4 — 2026-03-19
+**Status:** V4 UX polish and data fixes
+
+**What was completed:**
+- **Simplified layout visualization** — Replaced chaotic 3"-cell grid (hundreds of tiny cells) with proportional zone map:
+  - Each plant type shown as a clean colored block with emoji, name, count, and spacing
+  - Block width proportional to area usage (count × spacing²)
+  - Much easier to scan at a glance than the cell-based grid
+  - Removed redundant "Plant counts based on your space" section (zone map already shows this info)
+- **Fixed timeline for direct-sow plants** — Plants that should only be direct sown were incorrectly also shown as "Start Indoors":
+  - Spinach: removed indoor start (always direct sow, 6 wks before frost)
+  - Zucchini: removed indoor start (direct sow after frost; doesn't transplant well)
+  - Cucumber: removed indoor start (direct sow after frost)
+  - Kale: removed indoor start (direct sow, 4 wks before frost)
+  - Plants with `canDirectSow: true` now only show direct sow in timeline unless they truly need indoor start (e.g., tomato, pepper, eggplant have `canDirectSow: false`)
+- **Added Marigolds** — New flower plant type (25th plant):
+  - 8" spacing, full sun, companion to tomato/pepper/eggplant/bean/cucumber/zucchini, no enemies
+  - Repels aphids, whiteflies, nematodes — great border plant
+  - New "Flowers" category tab in plant selection (alongside Vegetables, Herbs, Fruits)
+- Build verified — zero errors
+
+**Decisions & Gotchas:**
+- Zone map uses area-proportional sizing: `count × spacing²` determines block width. This means a few large-spaced plants (tomatoes) get a proportionally bigger block than many small-spaced plants (peas), reflecting actual garden real estate usage
+- For the direct-sow fix, the rule is simple: if `startIndoorsWeeksBefore > 0`, show indoor start + transplant; if `canDirectSow`, show direct sow. Plants should only have one method set to non-zero (not both) unless both are truly valid options
+- Marigold `daysToHarvest: 50` represents days to first bloom, not edible harvest
 
 ### Session 3 — 2026-03-19
 **Status:** V3 intensive gardening overhaul complete
@@ -132,7 +158,7 @@ garden-planner/
 │   │   └── ResultsPage.tsx      # Layout grid + timeline + tips + seed list
 │   ├── data/
 │   │   ├── zones.ts             # City → zone/frost date lookup
-│   │   └── plants.ts            # Plant database (24 plants, now with fall/seed data)
+│   │   └── plants.ts            # Plant database (25 plants, now with fall/seed data + marigolds)
 │   └── lib/
 │       ├── layout.ts            # Layout generation (realistic spacing + companion groups)
 │       ├── timeline.ts          # Planting timeline (spring + fall, with seed quantities)

@@ -11,22 +11,28 @@ interface Props {
   initialPlants?: PlantData[];
 }
 
+const HERB_IDS = ["basil", "parsley", "cilantro", "dill"];
+const FLOWER_IDS = ["marigold"];
+const FRUIT_IDS = ["strawberry"];
+
 const categories = [
   { label: "All", filter: () => true },
   {
     label: "Vegetables",
     filter: (p: PlantData) =>
-      !["basil", "parsley", "cilantro", "dill"].includes(p.id) &&
-      p.id !== "strawberry",
+      !HERB_IDS.includes(p.id) && !FLOWER_IDS.includes(p.id) && !FRUIT_IDS.includes(p.id),
   },
   {
     label: "Herbs",
-    filter: (p: PlantData) =>
-      ["basil", "parsley", "cilantro", "dill"].includes(p.id),
+    filter: (p: PlantData) => HERB_IDS.includes(p.id),
+  },
+  {
+    label: "Flowers",
+    filter: (p: PlantData) => FLOWER_IDS.includes(p.id),
   },
   {
     label: "Fruits",
-    filter: (p: PlantData) => p.id === "strawberry",
+    filter: (p: PlantData) => FRUIT_IDS.includes(p.id),
   },
 ];
 
