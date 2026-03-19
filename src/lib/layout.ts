@@ -123,24 +123,24 @@ function generateInGroundLayout(
   // Sort: tall in back (low row indices = north)
   const sorted = sortByHeight(selectedPlants);
 
-  // For each plant type, calculate how many fit and place them
-  // We allocate vertical bands proportional to each plant's space needs
+  // Round-robin placement: give each plant type exactly 1 row-band first,
+  // then do additional passes to fill remaining space. This maximizes variety.
+  const plantCounts: Record<string, number> = {};
   let currentRow = 0;
 
+  // Pass 1: place exactly 1 row of each plant type (ensures every plant gets space)
+  const plantsForPass2: PlantData[] = [];
   for (const plant of sorted) {
     const spacingCells = Math.max(1, Math.round(plant.spacingInches / cellSizeInches));
     const countX = plantsAlongDimension(widthInches, plant.spacingInches);
-
-    // Calculate how many rows this plant type needs
-    // Give each plant type a proportional band of the garden
     const availableRows = rows - currentRow;
+
     if (availableRows <= 0 || countX === 0) {
       unplacedPlants.push(plant);
       continue;
     }
 
-    // Allocate rows proportional to what the plant actually needs (not double)
-    // For intensive planting, use just enough rows for 1 row of plants plus spacing
+    // Allocate just enough rows for 1 row of this plant
     const rowsForPlant = Math.min(spacingCells, availableRows);
     const countY = plantsAlongDimension(rowsForPlant * cellSizeInches, plant.spacingInches);
 
@@ -149,10 +149,6 @@ function generateInGroundLayout(
       continue;
     }
 
-    const totalCount = countX * countY;
-    plantAllocations.push({ plant, count: totalCount });
-
-    // Place individual instances
     const startOffset = Math.floor(spacingCells / 2);
     for (let iy = 0; iy < countY; iy++) {
       for (let ix = 0; ix < countX; ix++) {
@@ -161,11 +157,62 @@ function generateInGroundLayout(
         if (r < rows && c < cols) {
           grid[r][c] = plant.id;
           plantInstances.push({ plant, row: r, col: c });
+          plantCounts[plant.id] = (plantCounts[plant.id] || 0) + 1;
         }
       }
     }
 
     currentRow += rowsForPlant;
+    plantsForPass2.push(plant);
+  }
+
+  // Pass 2: fill remaining rows round-robin with plants that already got placed
+  // This gives additional space to plants proportionally rather than greedily
+  let pass2Index = 0;
+  while (currentRow < rows && plantsForPass2.length > 0) {
+    const plant = plantsForPass2[pass2Index % plantsForPass2.length];
+    const spacingCells = Math.max(1, Math.round(plant.spacingInches / cellSizeInches));
+    const countX = plantsAlongDimension(widthInches, plant.spacingInches);
+    const availableRows = rows - currentRow;
+
+    if (availableRows < spacingCells || countX === 0) {
+      // Not enough room for another row of this plant — try next
+      plantsForPass2.splice(pass2Index % plantsForPass2.length, 1);
+      if (plantsForPass2.length === 0) break;
+      continue;
+    }
+
+    const rowsForPlant = Math.min(spacingCells, availableRows);
+    const countY = plantsAlongDimension(rowsForPlant * cellSizeInches, plant.spacingInches);
+
+    if (countY === 0) {
+      plantsForPass2.splice(pass2Index % plantsForPass2.length, 1);
+      if (plantsForPass2.length === 0) break;
+      continue;
+    }
+
+    const startOffset = Math.floor(spacingCells / 2);
+    for (let iy = 0; iy < countY; iy++) {
+      for (let ix = 0; ix < countX; ix++) {
+        const r = currentRow + startOffset + iy * spacingCells;
+        const c = startOffset + ix * spacingCells;
+        if (r < rows && c < cols) {
+          grid[r][c] = plant.id;
+          plantInstances.push({ plant, row: r, col: c });
+          plantCounts[plant.id] = (plantCounts[plant.id] || 0) + 1;
+        }
+      }
+    }
+
+    currentRow += rowsForPlant;
+    pass2Index++;
+  }
+
+  // Build allocations from counts
+  for (const plant of sorted) {
+    if (plantCounts[plant.id]) {
+      plantAllocations.push({ plant, count: plantCounts[plant.id] });
+    }
   }
 
   return { grid, cellSizeInches, rows, cols, plantInstances, plantAllocations, unplacedPlants };
@@ -207,59 +254,111 @@ function generateContainerLayout(
 
     let currentRow = 0;
 
+    // Flatten companion groups but filter by depth compatibility
+    const compatiblePlants: PlantData[] = [];
     for (const group of companionGroups) {
       for (const plant of group) {
         if (plant.minContainerDepthInches > container.depthInches) {
           remainingPlants.push(plant);
-          continue;
+        } else {
+          compatiblePlants.push(plant);
         }
+      }
+    }
 
-        const availableLengthInches = (rows - currentRow) * cellSizeInches;
-        if (availableLengthInches <= 0) {
-          remainingPlants.push(plant);
-          continue;
-        }
+    // Pass 1: place exactly 1 row of each plant (maximize variety)
+    const plantCounts: Record<string, number> = {};
+    const placedPlants: PlantData[] = [];
 
-        const spacingCells = Math.max(1, Math.round(plant.spacingInches / cellSizeInches));
-        const countX = plantsAlongDimension(container.widthInches, plant.spacingInches);
+    for (const plant of compatiblePlants) {
+      const spacingCells = Math.max(1, Math.round(plant.spacingInches / cellSizeInches));
+      const countX = plantsAlongDimension(container.widthInches, plant.spacingInches);
+      const availableRows = rows - currentRow;
 
-        if (countX === 0) {
-          remainingPlants.push(plant);
-          continue;
-        }
+      if (availableRows <= 0 || countX === 0) {
+        remainingPlants.push(plant);
+        continue;
+      }
 
-        // Allocate rows for this plant — enough for 1-2 rows of plants
-        const rowsNeeded = spacingCells;
-        const actualRows = Math.min(rowsNeeded, rows - currentRow);
-        const countY = plantsAlongDimension(actualRows * cellSizeInches, plant.spacingInches);
+      const rowsNeeded = Math.min(spacingCells, availableRows);
+      const countY = plantsAlongDimension(rowsNeeded * cellSizeInches, plant.spacingInches);
 
-        if (countY === 0) {
-          remainingPlants.push(plant);
-          continue;
-        }
+      if (countY === 0) {
+        remainingPlants.push(plant);
+        continue;
+      }
 
-        const totalCount = countX * countY;
-        containerAllocations.push({ plant, count: totalCount, containerIndex: ci });
-        allPlantAllocations.push({ plant, count: totalCount, containerIndex: ci });
+      const startOffsetX = Math.floor(spacingCells / 2);
+      const startOffsetY = Math.floor(spacingCells / 2);
 
-        // Place individual plant instances
-        const startOffsetX = Math.floor(spacingCells / 2);
-        const startOffsetY = Math.floor(spacingCells / 2);
-
-        for (let iy = 0; iy < countY; iy++) {
-          for (let ix = 0; ix < countX; ix++) {
-            const r = currentRow + startOffsetY + iy * spacingCells;
-            const c = startOffsetX + ix * spacingCells;
-            if (r < rows && c < cols) {
-              grid[r][c] = plant.id;
-              const instance: PlantInstance = { plant, row: r, col: c, containerIndex: ci };
-              containerInstances.push(instance);
-              allPlantInstances.push(instance);
-            }
+      for (let iy = 0; iy < countY; iy++) {
+        for (let ix = 0; ix < countX; ix++) {
+          const r = currentRow + startOffsetY + iy * spacingCells;
+          const c = startOffsetX + ix * spacingCells;
+          if (r < rows && c < cols) {
+            grid[r][c] = plant.id;
+            const instance: PlantInstance = { plant, row: r, col: c, containerIndex: ci };
+            containerInstances.push(instance);
+            allPlantInstances.push(instance);
+            plantCounts[plant.id] = (plantCounts[plant.id] || 0) + 1;
           }
         }
+      }
 
-        currentRow += actualRows;
+      currentRow += rowsNeeded;
+      placedPlants.push(plant);
+    }
+
+    // Pass 2: fill remaining space round-robin
+    let pass2Index = 0;
+    const pass2Plants = [...placedPlants];
+    while (currentRow < rows && pass2Plants.length > 0) {
+      const plant = pass2Plants[pass2Index % pass2Plants.length];
+      const spacingCells = Math.max(1, Math.round(plant.spacingInches / cellSizeInches));
+      const countX = plantsAlongDimension(container.widthInches, plant.spacingInches);
+      const availableRows = rows - currentRow;
+
+      if (availableRows < spacingCells || countX === 0) {
+        pass2Plants.splice(pass2Index % pass2Plants.length, 1);
+        if (pass2Plants.length === 0) break;
+        continue;
+      }
+
+      const rowsNeeded = Math.min(spacingCells, availableRows);
+      const countY = plantsAlongDimension(rowsNeeded * cellSizeInches, plant.spacingInches);
+
+      if (countY === 0) {
+        pass2Plants.splice(pass2Index % pass2Plants.length, 1);
+        if (pass2Plants.length === 0) break;
+        continue;
+      }
+
+      const startOffsetX = Math.floor(spacingCells / 2);
+      const startOffsetY = Math.floor(spacingCells / 2);
+
+      for (let iy = 0; iy < countY; iy++) {
+        for (let ix = 0; ix < countX; ix++) {
+          const r = currentRow + startOffsetY + iy * spacingCells;
+          const c = startOffsetX + ix * spacingCells;
+          if (r < rows && c < cols) {
+            grid[r][c] = plant.id;
+            const instance: PlantInstance = { plant, row: r, col: c, containerIndex: ci };
+            containerInstances.push(instance);
+            allPlantInstances.push(instance);
+            plantCounts[plant.id] = (plantCounts[plant.id] || 0) + 1;
+          }
+        }
+      }
+
+      currentRow += rowsNeeded;
+      pass2Index++;
+    }
+
+    // Build allocations from counts
+    for (const plant of compatiblePlants) {
+      if (plantCounts[plant.id]) {
+        containerAllocations.push({ plant, count: plantCounts[plant.id], containerIndex: ci });
+        allPlantAllocations.push({ plant, count: plantCounts[plant.id], containerIndex: ci });
       }
     }
 

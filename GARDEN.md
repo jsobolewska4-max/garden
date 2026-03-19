@@ -3,7 +3,7 @@
 ## Project Overview
 A web app that helps novice gardeners plan their vegetable gardens by providing personalized garden layouts and planting timelines based on their location, garden dimensions, and desired plants.
 
-## Status: V2 Updates Complete (realistic spacing, fall planting, seed quantities)
+## Status: V3 Updates Complete (intensive spacing, variety-maximizing layout, zone fixes)
 
 ## Tech Stack
 - Next.js 16 with TypeScript
@@ -12,6 +12,33 @@ A web app that helps novice gardeners plan their vegetable gardens by providing 
 - Deployable to Vercel
 
 ## Session Log
+
+### Session 3 — 2026-03-19
+**Status:** V3 intensive gardening overhaul complete
+
+**What was completed:**
+- **Intensive/block-style plant spacing** — Updated all plant spacing values to match intensive raised bed gardening per [CSU Extension GardenNotes #713](https://cmg.extension.colostate.edu/Gardennotes/713.pdf) and square foot gardening principles:
+  - Tomato 24"→18", Pepper 18"→12", Cucumber 18"→12", Zucchini 36"→24"
+  - Eggplant 24"→18", Basil 12"→6", Dill 12"→6", Kale 18"→12"
+  - Broccoli 18"→15", Cauliflower 18"→15", Potato 12"→9", Strawberry 12"→8"
+  - Smaller plants (carrot 3", radish 3", spinach 6", etc.) already at intensive spacing
+- **Variety-maximizing layout algorithm** — Replaced greedy single-pass layout with round-robin:
+  - Pass 1: each plant type gets exactly 1 row-band (ensures ALL selected plants get at least 1 spot)
+  - Pass 2: remaining rows filled round-robin across placed plants (proportional fill, not greedy)
+  - Fixes issue where tall plants (e.g., tomatoes) consumed all space leaving nothing for other selections
+  - Applied to both in-ground and container layout algorithms
+- **USDA zone data corrections** — Updated per 2023 USDA Hardiness Zone Map:
+  - NYC 6b→7b, Philadelphia 6b→7a, Boston 5b→6b, Washington DC 7a→7b
+  - Portland OR 6b→8b, Seattle 6b→8b, Baltimore 7a→7a (frost dates adjusted)
+- **Distance annotations on layout grid** — Shows inches between adjacent plants directly on the grid visualization (both horizontal and vertical), so users don't have to count 3" cells manually
+- **Layout algorithm threshold fix** — Lowered `plantsAlongDimension` rejection threshold from 75% to 50% of spacing, allowing single plants to fit in narrower beds (e.g., zucchini in 24"-wide bed)
+- Build verified — zero errors
+
+**Decisions & Gotchas:**
+- Intensive spacing assumes staking/caging for tomatoes and trellising for cucumbers — tips already mention this
+- Round-robin pass 2 removes plants from rotation if remaining space can't fit their spacing
+- Distance annotations use absolute positioning overlays on the CSS grid; hidden when gap < 16px to avoid clutter
+- Zone data is hardcoded (no API) — sourced from 2023 USDA map; may drift over time
 
 ### Session 2 — 2026-03-11
 **Status:** V2 feature updates built and compiling
