@@ -22,11 +22,13 @@ A web app that helps novice gardeners plan their vegetable gardens by providing 
   - Eggplant 24"→18", Basil 12"→6", Dill 12"→6", Kale 18"→12"
   - Broccoli 18"→15", Cauliflower 18"→15", Potato 12"→9", Strawberry 12"→8"
   - Smaller plants (carrot 3", radish 3", spinach 6", etc.) already at intensive spacing
-- **Variety-maximizing layout algorithm** — Replaced greedy single-pass layout with round-robin:
-  - Pass 1: each plant type gets exactly 1 row-band (ensures ALL selected plants get at least 1 spot)
-  - Pass 2: remaining rows filled round-robin across placed plants (proportional fill, not greedy)
-  - Fixes issue where tall plants (e.g., tomatoes) consumed all space leaving nothing for other selections
-  - Applied to both in-ground and container layout algorithms
+- **SFG-style 2D layout algorithm** — Replaced band-based layout with true square-foot gardening placement:
+  - Each plant type generates its own spacing grid across the entire area (e.g., tomato every 18", basil every 6")
+  - Round-robin interleaving: cycle through plants placing one position per plant per round
+  - Plants with tighter spacing naturally get more spots (more basil than tomatoes), matching real SFG density
+  - Occupied cells are skipped — different plant types can share the same area without spacing conflicts
+  - Fixes issue where narrow containers (e.g., 90"×24") only showed tomatoes because the short axis ran out of row-bands
+  - Applied to both in-ground and container layouts via shared `fillGridSFG()` function
 - **USDA zone data corrections** — Updated per 2023 USDA Hardiness Zone Map:
   - NYC 6b→7b, Philadelphia 6b→7a, Boston 5b→6b, Washington DC 7a→7b
   - Portland OR 6b→8b, Seattle 6b→8b, Baltimore 7a→7a (frost dates adjusted)
@@ -36,7 +38,8 @@ A web app that helps novice gardeners plan their vegetable gardens by providing 
 
 **Decisions & Gotchas:**
 - Intensive spacing assumes staking/caging for tomatoes and trellising for cucumbers — tips already mention this
-- Round-robin pass 2 removes plants from rotation if remaining space can't fit their spacing
+- SFG placement means different plant types can interleave — a basil at 6" spacing fills gaps between tomatoes at 18" spacing
+- Plants with identical spacing grids (e.g., tomato & eggplant both at 18") alternate positions naturally
 - Distance annotations use absolute positioning overlays on the CSS grid; hidden when gap < 16px to avoid clutter
 - Zone data is hardcoded (no API) — sourced from 2023 USDA map; may drift over time
 
