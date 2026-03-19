@@ -27,63 +27,85 @@ export default function Step1Location({ onComplete, initialCity }: Props) {
   const zoneData = selectedCity ? cityZones[selectedCity] : null;
 
   return (
-    <div className="max-w-lg mx-auto">
-      <h2 className="text-2xl font-bold text-gray-800 mb-2">Where is your garden?</h2>
-      <p className="text-gray-600 mb-6">
-        Enter your city so we can determine your USDA hardiness zone and frost dates.
-      </p>
+    <div className="max-w-lg mx-auto animate-bounce-in">
+      <div className="text-center mb-6">
+        <span className="text-5xl mb-3 inline-block">🌍</span>
+        <h2 className="text-2xl font-extrabold text-[var(--foreground)] mb-1">
+          Where is your garden?
+        </h2>
+        <p className="text-gray-500 font-medium">
+          We&apos;ll find your growing zone and frost dates!
+        </p>
+      </div>
 
-      <div className="relative">
-        <label className="block text-sm font-medium text-gray-700 mb-1">City</label>
-        <input
-          type="text"
-          value={query}
-          onChange={(e) => {
-            setQuery(e.target.value);
-            setSelectedCity(null);
-            setShowDropdown(true);
-          }}
-          onFocus={() => setShowDropdown(true)}
-          placeholder="Start typing your city..."
-          className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 text-gray-900 text-lg"
-        />
+      <div className="card-duo mb-4">
+        <div className="relative">
+          <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">
+            Your City
+          </label>
+          <input
+            type="text"
+            value={query}
+            onChange={(e) => {
+              setQuery(e.target.value);
+              setSelectedCity(null);
+              setShowDropdown(true);
+            }}
+            onFocus={() => setShowDropdown(true)}
+            placeholder="Start typing your city..."
+            className="input-duo"
+          />
 
-        {showDropdown && results.length > 0 && (
-          <div className="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-64 overflow-y-auto">
-            {results.map((city) => (
-              <button
-                key={city}
-                onClick={() => handleSelect(city)}
-                className="w-full text-left px-4 py-3 hover:bg-green-50 text-gray-800 border-b border-gray-100 last:border-b-0"
-              >
-                <span className="font-medium">{city}</span>
-                <span className="text-sm text-gray-500 ml-2">
-                  Zone {cityZones[city].zone}
-                </span>
-              </button>
-            ))}
-          </div>
-        )}
+          {showDropdown && results.length > 0 && (
+            <div className="absolute z-10 w-full mt-2 bg-white border-2 border-[#e5e5e5] rounded-2xl shadow-xl max-h-64 overflow-y-auto">
+              {results.map((city) => (
+                <button
+                  key={city}
+                  onClick={() => handleSelect(city)}
+                  className="w-full text-left px-5 py-3.5 hover:bg-[var(--duo-green-light)] text-gray-700 border-b border-gray-100 last:border-b-0 transition-colors first:rounded-t-2xl last:rounded-b-2xl"
+                >
+                  <span className="font-bold">{city}</span>
+                  <span className="text-sm text-gray-400 ml-2 font-medium">
+                    Zone {cityZones[city].zone}
+                  </span>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
 
       {zoneData && (
-        <div className="mt-6 p-4 bg-green-50 border border-green-200 rounded-lg">
-          <h3 className="font-semibold text-green-800 text-lg">
-            Zone {zoneData.zone}
-          </h3>
-          <div className="mt-2 text-sm text-green-700 space-y-1">
-            <p>
-              <span className="font-medium">Average last spring frost:</span>{" "}
-              {formatFrostDate(zoneData.lastFrost)}
-            </p>
-            <p>
-              <span className="font-medium">Average first fall frost:</span>{" "}
-              {formatFrostDate(zoneData.firstFrost)}
-            </p>
-            <p className="text-green-600 mt-2">
-              Your growing season is approximately{" "}
-              {calculateGrowingDays(zoneData.lastFrost, zoneData.firstFrost)} days.
-            </p>
+        <div className="card-duo card-duo-selected animate-bounce-in mb-4">
+          <div className="flex items-center gap-3 mb-3">
+            <span className="text-3xl">🎯</span>
+            <div>
+              <h3 className="font-extrabold text-lg" style={{ color: "var(--duo-green-dark)" }}>
+                Zone {zoneData.zone}
+              </h3>
+              <p className="text-sm font-medium text-gray-500">Perfect! Here are your frost dates:</p>
+            </div>
+          </div>
+          <div className="space-y-2">
+            <div className="flex items-center gap-2 bg-white rounded-xl px-4 py-2.5 border border-[#e5e5e5]">
+              <span className="text-lg">🌸</span>
+              <div className="text-sm">
+                <span className="text-gray-500 font-medium">Last spring frost:</span>{" "}
+                <span className="font-bold text-[var(--foreground)]">{formatFrostDate(zoneData.lastFrost)}</span>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 bg-white rounded-xl px-4 py-2.5 border border-[#e5e5e5]">
+              <span className="text-lg">🍂</span>
+              <div className="text-sm">
+                <span className="text-gray-500 font-medium">First fall frost:</span>{" "}
+                <span className="font-bold text-[var(--foreground)]">{formatFrostDate(zoneData.firstFrost)}</span>
+              </div>
+            </div>
+            <div className="text-center pt-1">
+              <span className="badge-duo" style={{ background: "var(--duo-green-light)", color: "var(--duo-green-dark)" }}>
+                🌞 {calculateGrowingDays(zoneData.lastFrost, zoneData.firstFrost)} day growing season
+              </span>
+            </div>
           </div>
         </div>
       )}
@@ -91,13 +113,13 @@ export default function Step1Location({ onComplete, initialCity }: Props) {
       <button
         disabled={!zoneData}
         onClick={() => selectedCity && zoneData && onComplete(selectedCity, zoneData)}
-        className="mt-6 w-full py-3 px-6 bg-green-600 text-white rounded-lg font-semibold text-lg hover:bg-green-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
+        className="btn-duo btn-duo-green w-full text-lg"
       >
-        Next: Garden Setup
+        Continue
       </button>
 
-      <p className="mt-4 text-xs text-gray-400 text-center">
-        Don&apos;t see your city? Pick the nearest major city to get approximate frost dates.
+      <p className="mt-4 text-xs text-gray-400 text-center font-medium">
+        Don&apos;t see your city? Pick the nearest major city for approximate frost dates.
       </p>
     </div>
   );

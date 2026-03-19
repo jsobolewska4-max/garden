@@ -16,22 +16,26 @@ const FLOWER_IDS = ["marigold"];
 const FRUIT_IDS = ["strawberry"];
 
 const categories = [
-  { label: "All", filter: () => true },
+  { label: "All", emoji: "🌈", filter: () => true },
   {
     label: "Vegetables",
+    emoji: "🥬",
     filter: (p: PlantData) =>
       !HERB_IDS.includes(p.id) && !FLOWER_IDS.includes(p.id) && !FRUIT_IDS.includes(p.id),
   },
   {
     label: "Herbs",
+    emoji: "🌿",
     filter: (p: PlantData) => HERB_IDS.includes(p.id),
   },
   {
     label: "Flowers",
+    emoji: "🌸",
     filter: (p: PlantData) => FLOWER_IDS.includes(p.id),
   },
   {
     label: "Fruits",
+    emoji: "🍓",
     filter: (p: PlantData) => FRUIT_IDS.includes(p.id),
   },
 ];
@@ -64,27 +68,30 @@ export default function Step3Plants({
   const filteredPlants = plants.filter(activeFilter);
 
   return (
-    <div className="max-w-2xl mx-auto">
-      <h2 className="text-2xl font-bold text-gray-800 mb-2">
-        What do you want to grow?
-      </h2>
-      <p className="text-gray-600 mb-6">
-        Select the plants you&apos;d like in your garden. We&apos;ll figure out the layout for you.
-      </p>
+    <div className="max-w-2xl mx-auto animate-bounce-in">
+      <div className="text-center mb-6">
+        <span className="text-5xl mb-3 inline-block">🌱</span>
+        <h2 className="text-2xl font-extrabold text-[var(--foreground)] mb-1">
+          What do you want to grow?
+        </h2>
+        <p className="text-gray-500 font-medium">
+          Tap the plants you&apos;d like in your garden!
+        </p>
+      </div>
 
       {/* Category filter */}
-      <div className="flex gap-2 mb-4">
+      <div className="flex gap-2 mb-5 flex-wrap justify-center">
         {categories.map((cat) => (
           <button
             key={cat.label}
             onClick={() => setActiveCategory(cat.label)}
-            className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
+            className={`px-4 py-2 rounded-2xl text-sm font-bold transition-all border-2 ${
               activeCategory === cat.label
-                ? "bg-green-600 text-white"
-                : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                ? "bg-[var(--duo-blue)] text-white border-[var(--duo-blue-dark)] border-b-4"
+                : "bg-white text-gray-500 border-[#e5e5e5] hover:border-gray-300"
             }`}
           >
-            {cat.label}
+            {cat.emoji} {cat.label}
           </button>
         ))}
       </div>
@@ -100,31 +107,33 @@ export default function Step3Plants({
               key={plant.id}
               onClick={() => !notContainerFriendly && togglePlant(plant.id)}
               disabled={notContainerFriendly}
-              className={`p-3 rounded-lg border-2 text-left transition-all ${
+              className={`card-duo text-left transition-all ${
                 notContainerFriendly
-                  ? "border-gray-100 bg-gray-50 opacity-50 cursor-not-allowed"
+                  ? "opacity-40 cursor-not-allowed !border-[#e5e5e5]"
                   : isSelected
-                  ? "border-green-500 bg-green-50 shadow-sm"
-                  : "border-gray-200 hover:border-green-300 hover:bg-green-50/50"
+                  ? "card-duo-selected !border-b-4 !border-b-[var(--duo-green-dark)]"
+                  : "hover:border-gray-300 active:scale-95"
               }`}
             >
-              <div className="flex items-start gap-2">
-                <span className="text-2xl">{plant.emoji}</span>
-                <div className="min-w-0">
-                  <div className="font-medium text-gray-800 text-sm">
+              <div className="flex items-start gap-2.5">
+                <span className="text-3xl">{plant.emoji}</span>
+                <div className="min-w-0 flex-1">
+                  <div className="font-bold text-[var(--foreground)] text-sm">
                     {plant.name}
                   </div>
-                  <div className="text-xs text-gray-500 mt-0.5">
+                  <div className="text-xs text-gray-400 mt-0.5 font-medium">
                     {plant.spacingInches}&quot; spacing &middot; {plant.sun} sun
                   </div>
                   {notContainerFriendly && (
-                    <div className="text-xs text-red-400 mt-0.5">
+                    <div className="text-xs font-bold mt-0.5" style={{ color: "var(--duo-red)" }}>
                       Not suited for containers
                     </div>
                   )}
                 </div>
                 {isSelected && (
-                  <span className="ml-auto text-green-600 text-lg">&#10003;</span>
+                  <span className="w-6 h-6 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0" style={{ background: "var(--duo-green)" }}>
+                    ✓
+                  </span>
                 )}
               </div>
             </button>
@@ -134,15 +143,16 @@ export default function Step3Plants({
 
       {/* Selected summary */}
       {selectedPlants.length > 0 && (
-        <div className="p-3 bg-green-50 border border-green-200 rounded-lg mb-4">
-          <div className="text-sm font-medium text-green-800">
-            {selectedPlants.length} plant{selectedPlants.length !== 1 ? "s" : ""} selected:
+        <div className="card-duo card-duo-selected mb-4 animate-bounce-in">
+          <div className="text-sm font-bold" style={{ color: "var(--duo-green-dark)" }}>
+            🎉 {selectedPlants.length} plant{selectedPlants.length !== 1 ? "s" : ""} selected!
           </div>
-          <div className="flex flex-wrap gap-1 mt-1">
+          <div className="flex flex-wrap gap-1.5 mt-2">
             {selectedPlants.map((p) => (
               <span
                 key={p.id}
-                className="inline-flex items-center gap-1 px-2 py-0.5 bg-green-100 rounded text-xs text-green-700"
+                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl text-xs font-bold"
+                style={{ background: "var(--duo-green)", color: "white" }}
               >
                 {p.emoji} {p.name}
               </span>
@@ -152,18 +162,15 @@ export default function Step3Plants({
       )}
 
       <div className="flex gap-3">
-        <button
-          onClick={onBack}
-          className="py-3 px-6 border border-gray-300 text-gray-600 rounded-lg font-medium hover:bg-gray-50 transition-colors"
-        >
+        <button onClick={onBack} className="btn-duo btn-duo-white">
           Back
         </button>
         <button
           disabled={selectedPlants.length === 0}
           onClick={() => onComplete(selectedPlants)}
-          className="flex-1 py-3 px-6 bg-green-600 text-white rounded-lg font-semibold text-lg hover:bg-green-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
+          className="btn-duo btn-duo-green flex-1 text-lg"
         >
-          Generate My Garden Plan
+          Generate My Plan
         </button>
       </div>
     </div>

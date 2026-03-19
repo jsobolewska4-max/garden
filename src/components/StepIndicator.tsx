@@ -1,44 +1,49 @@
 "use client";
 
 const steps = [
-  { num: 1, label: "Location" },
-  { num: 2, label: "Garden Setup" },
-  { num: 3, label: "Plants" },
-  { num: 4, label: "Your Plan" },
+  { num: 1, label: "Location", emoji: "📍" },
+  { num: 2, label: "Garden", emoji: "🏡" },
+  { num: 3, label: "Plants", emoji: "🌱" },
+  { num: 4, label: "Plan", emoji: "✨" },
 ];
 
 export default function StepIndicator({ currentStep }: { currentStep: number }) {
+  const progress = ((currentStep - 1) / (steps.length - 1)) * 100;
+
   return (
-    <div className="flex items-center justify-center gap-0 mb-8">
-      {steps.map((step, i) => (
-        <div key={step.num} className="flex items-center">
-          <div className="flex flex-col items-center">
+    <div className="max-w-lg mx-auto mb-8">
+      {/* Progress bar */}
+      <div className="progress-bar-duo mb-4">
+        <div
+          className="progress-bar-duo-fill"
+          style={{ width: `${Math.max(8, progress)}%` }}
+        />
+      </div>
+
+      {/* Step labels */}
+      <div className="flex justify-between">
+        {steps.map((step) => (
+          <div key={step.num} className="flex flex-col items-center gap-1">
             <div
-              className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold transition-colors ${
+              className={`w-10 h-10 rounded-full flex items-center justify-center text-lg transition-all ${
                 currentStep >= step.num
-                  ? "bg-green-600 text-white"
-                  : "bg-gray-200 text-gray-500"
-              }`}
+                  ? "bg-[var(--duo-green)] text-white shadow-md"
+                  : "bg-[#e5e5e5] text-gray-400"
+              } ${currentStep === step.num ? "ring-4 ring-[var(--duo-green-light)] scale-110" : ""}`}
+              style={currentStep >= step.num ? { borderBottom: "3px solid var(--duo-green-dark)" } : {}}
             >
-              {currentStep > step.num ? "✓" : step.num}
+              {currentStep > step.num ? "✓" : step.emoji}
             </div>
             <span
-              className={`text-xs mt-1 ${
-                currentStep >= step.num ? "text-green-700 font-semibold" : "text-gray-400"
+              className={`text-xs font-bold ${
+                currentStep >= step.num ? "text-[var(--duo-green-dark)]" : "text-gray-400"
               }`}
             >
               {step.label}
             </span>
           </div>
-          {i < steps.length - 1 && (
-            <div
-              className={`w-12 sm:w-20 h-1 mx-1 mt-[-12px] rounded ${
-                currentStep > step.num ? "bg-green-600" : "bg-gray-200"
-              }`}
-            />
-          )}
-        </div>
-      ))}
+        ))}
+      </div>
     </div>
   );
 }

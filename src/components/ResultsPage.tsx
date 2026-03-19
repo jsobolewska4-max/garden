@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useEffect, useState } from "react";
 import { PlantData } from "@/data/plants";
 import { ZoneData } from "@/data/zones";
 import { GardenConfig, generateLayout, LayoutResult } from "@/lib/layout";
@@ -14,12 +14,48 @@ interface Props {
   onStartOver: () => void;
 }
 
-const actionColors: Record<string, { bg: string; text: string; label: string }> = {
-  "start-indoors": { bg: "bg-purple-100", text: "text-purple-800", label: "Start Indoors" },
-  transplant: { bg: "bg-blue-100", text: "text-blue-800", label: "Transplant" },
-  "direct-sow": { bg: "bg-amber-100", text: "text-amber-800", label: "Direct Sow" },
-  harvest: { bg: "bg-green-100", text: "text-green-800", label: "Harvest" },
+const actionColors: Record<string, { bg: string; text: string; label: string; emoji: string }> = {
+  "start-indoors": { bg: "bg-purple-100", text: "text-purple-800", label: "Start Indoors", emoji: "🏠" },
+  transplant: { bg: "bg-blue-100", text: "text-blue-800", label: "Transplant", emoji: "🔄" },
+  "direct-sow": { bg: "bg-amber-100", text: "text-amber-800", label: "Direct Sow", emoji: "🌱" },
+  harvest: { bg: "bg-green-100", text: "text-green-800", label: "Harvest", emoji: "🎉" },
 };
+
+function Confetti() {
+  const [particles, setParticles] = useState<{ id: number; left: number; delay: number; color: string; size: number }[]>([]);
+
+  useEffect(() => {
+    const colors = ["#58cc02", "#1cb0f6", "#ff9600", "#ce82ff", "#ff4b4b", "#ffc800"];
+    const newParticles = Array.from({ length: 40 }, (_, i) => ({
+      id: i,
+      left: Math.random() * 100,
+      delay: Math.random() * 2,
+      color: colors[Math.floor(Math.random() * colors.length)],
+      size: Math.random() * 8 + 6,
+    }));
+    setParticles(newParticles);
+  }, []);
+
+  return (
+    <div className="fixed inset-0 pointer-events-none z-50 overflow-hidden">
+      {particles.map((p) => (
+        <div
+          key={p.id}
+          style={{
+            position: "absolute",
+            left: `${p.left}%`,
+            top: "-20px",
+            width: p.size,
+            height: p.size,
+            backgroundColor: p.color,
+            borderRadius: Math.random() > 0.5 ? "50%" : "2px",
+            animation: `confettiFall ${2 + Math.random() * 2}s ease-in ${p.delay}s forwards`,
+          }}
+        />
+      ))}
+    </div>
+  );
+}
 
 export default function ResultsPage({
   city,
@@ -28,6 +64,13 @@ export default function ResultsPage({
   selectedPlants,
   onStartOver,
 }: Props) {
+  const [showConfetti, setShowConfetti] = useState(true);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setShowConfetti(false), 5000);
+    return () => clearTimeout(timer);
+  }, []);
+
   const layout = useMemo(
     () => generateLayout(gardenConfig, selectedPlants),
     [gardenConfig, selectedPlants]
@@ -38,7 +81,6 @@ export default function ResultsPage({
     [zoneData, selectedPlants, layout.plantAllocations]
   );
 
-  // Group timeline events by month
   const eventsByMonth = useMemo(() => {
     const groups: Record<string, TimelineEvent[]> = {};
     for (const event of timeline) {
@@ -52,7 +94,6 @@ export default function ResultsPage({
     return groups;
   }, [timeline]);
 
-  // Build color map for plants — high-contrast, perceptually distinct palette
   const plantColors = useMemo(() => {
     const colors = [
       { bg: "bg-red-100", border: "border-red-400", text: "text-red-800" },
@@ -79,80 +120,98 @@ export default function ResultsPage({
     return map;
   }, [selectedPlants]);
 
-  // Gather all allocations for the summary
   const allAllocations = layout.plantAllocations;
 
   return (
     <div className="max-w-4xl mx-auto">
-      <div className="text-center mb-8">
-        <h2 className="text-3xl font-bold text-gray-800 mb-2">
-          Your Garden Plan
+      {showConfetti && <Confetti />}
+
+      {/* Hero celebration */}
+      <div className="text-center mb-10 animate-bounce-in">
+        <span className="text-7xl inline-block mb-3">🎉</span>
+        <h2 className="text-3xl font-extrabold text-[var(--foreground)] mb-2">
+          Your Garden Plan is Ready!
         </h2>
-        <p className="text-gray-600">
-          {city} &middot; Zone {zoneData.zone} &middot;{" "}
-          {gardenConfig.type === "inground"
-            ? `${gardenConfig.widthFeet}' x ${gardenConfig.lengthFeet}' bed`
-            : `${gardenConfig.containers?.length} container${(gardenConfig.containers?.length || 0) > 1 ? "s" : ""}`}
-          {" "}&middot; {selectedPlants.length} plant type{selectedPlants.length !== 1 ? "s" : ""}
-        </p>
+        <div className="flex flex-wrap items-center justify-center gap-2 mt-3">
+          <span className="badge-duo" style={{ background: "var(--duo-green-light)", color: "var(--duo-green-dark)" }}>
+            📍 {city}
+          </span>
+          <span className="badge-duo" style={{ background: "#e8f4fd", color: "var(--duo-blue-dark)" }}>
+            🌡️ Zone {zoneData.zone}
+          </span>
+          <span className="badge-duo" style={{ background: "#fff3e0", color: "var(--duo-orange-dark)" }}>
+            {gardenConfig.type === "inground"
+              ? `📐 ${gardenConfig.widthFeet}' x ${gardenConfig.lengthFeet}' bed`
+              : `🪴 ${gardenConfig.containers?.length} container${(gardenConfig.containers?.length || 0) > 1 ? "s" : ""}`}
+          </span>
+          <span className="badge-duo" style={{ background: "#f3e8ff", color: "var(--duo-purple-dark)" }}>
+            🌱 {selectedPlants.length} plant{selectedPlants.length !== 1 ? "s" : ""}
+          </span>
+        </div>
       </div>
 
       {/* Garden Layout Section */}
       <section className="mb-10">
-        <h3 className="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
-          <span className="text-2xl">&#127793;</span> Suggested Layout
+        <h3 className="section-header-duo mb-4">
+          <span className="text-3xl">🗺️</span> Suggested Layout
         </h3>
 
-        {gardenConfig.type === "inground" ? (
-          <InGroundGrid layout={layout} plantColors={plantColors} selectedPlants={selectedPlants} />
-        ) : (
-          <ContainerGrids layout={layout} plantColors={plantColors} selectedPlants={selectedPlants} gardenConfig={gardenConfig} />
-        )}
+        <div className="card-duo">
+          {gardenConfig.type === "inground" ? (
+            <InGroundGrid layout={layout} plantColors={plantColors} selectedPlants={selectedPlants} />
+          ) : (
+            <ContainerGrids layout={layout} plantColors={plantColors} selectedPlants={selectedPlants} gardenConfig={gardenConfig} />
+          )}
+        </div>
 
         {layout.unplacedPlants.length > 0 && (
-          <div className="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-lg">
-            <p className="text-sm font-medium text-amber-800">
-              Could not fit these plants in your space:
-            </p>
-            <div className="flex flex-wrap gap-1 mt-1">
-              {layout.unplacedPlants.map((p) => (
-                <span key={p.id} className="text-sm text-amber-700">
-                  {p.emoji} {p.name}
-                </span>
-              ))}
+          <div className="mt-4 p-4 rounded-2xl flex items-start gap-3" style={{ background: "#fff3e0" }}>
+            <span className="text-2xl">⚠️</span>
+            <div>
+              <p className="text-sm font-bold" style={{ color: "var(--duo-orange-dark)" }}>
+                Could not fit these plants:
+              </p>
+              <div className="flex flex-wrap gap-1 mt-1">
+                {layout.unplacedPlants.map((p) => (
+                  <span key={p.id} className="text-sm font-medium" style={{ color: "var(--duo-orange)" }}>
+                    {p.emoji} {p.name}
+                  </span>
+                ))}
+              </div>
+              <p className="text-xs mt-1 font-medium" style={{ color: "var(--duo-orange)" }}>
+                Consider a larger garden or additional containers.
+              </p>
             </div>
-            <p className="text-xs text-amber-600 mt-1">
-              Consider a larger garden or additional containers.
-            </p>
           </div>
         )}
 
-        {/* Companion planting tips */}
         <CompanionTips selectedPlants={selectedPlants} />
       </section>
 
       {/* Timeline Section */}
       <section className="mb-10">
-        <h3 className="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
-          <span className="text-2xl">&#128197;</span> Planting Timeline
+        <h3 className="section-header-duo mb-4">
+          <span className="text-3xl">📅</span> Planting Timeline
         </h3>
 
-        {/* Spring/Summer section */}
         <div className="mb-6">
-          <h4 className="text-md font-semibold text-green-700 mb-3 flex items-center gap-1">
-            <span>&#127793;</span> Spring / Summer
-          </h4>
+          <div className="flex items-center gap-2 mb-3">
+            <span className="badge-duo" style={{ background: "var(--duo-green-light)", color: "var(--duo-green-dark)" }}>
+              🌸 Spring / Summer
+            </span>
+          </div>
           <TimelineEvents
             eventsByMonth={filterEventsByMonth(eventsByMonth, "spring")}
           />
         </div>
 
-        {/* Fall section */}
         {hasFallEvents(eventsByMonth) && (
           <div className="mb-6">
-            <h4 className="text-md font-semibold text-orange-700 mb-3 flex items-center gap-1">
-              <span>&#127810;</span> Fall Planting
-            </h4>
+            <div className="flex items-center gap-2 mb-3">
+              <span className="badge-duo" style={{ background: "#fff3e0", color: "var(--duo-orange-dark)" }}>
+                🍂 Fall Planting
+              </span>
+            </div>
             <TimelineEvents
               eventsByMonth={filterEventsByMonth(eventsByMonth, "fall")}
             />
@@ -162,18 +221,18 @@ export default function ResultsPage({
 
       {/* Seed Shopping Summary */}
       <section className="mb-10">
-        <h3 className="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
-          <span className="text-2xl">&#127793;</span> Seed Shopping List
+        <h3 className="section-header-duo mb-4">
+          <span className="text-3xl">🛒</span> Seed Shopping List
         </h3>
-        <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+        <div className="card-duo overflow-hidden !p-0">
           <table className="w-full text-sm">
             <thead>
-              <tr className="bg-gray-50 border-b border-gray-200">
-                <th className="text-left px-4 py-2 font-medium text-gray-700">Plant</th>
-                <th className="text-center px-4 py-2 font-medium text-gray-700">Plants in Layout</th>
-                <th className="text-center px-4 py-2 font-medium text-gray-700">Seeds/Spot</th>
-                <th className="text-center px-4 py-2 font-medium text-gray-700">Total Seeds (Spring)</th>
-                <th className="text-center px-4 py-2 font-medium text-gray-700">Fall Crop?</th>
+              <tr style={{ background: "var(--duo-green-light)" }}>
+                <th className="text-left px-4 py-3 font-bold text-[var(--duo-green-dark)]">Plant</th>
+                <th className="text-center px-4 py-3 font-bold text-[var(--duo-green-dark)]">Plants</th>
+                <th className="text-center px-4 py-3 font-bold text-[var(--duo-green-dark)]">Seeds/Spot</th>
+                <th className="text-center px-4 py-3 font-bold text-[var(--duo-green-dark)]">Total Seeds</th>
+                <th className="text-center px-4 py-3 font-bold text-[var(--duo-green-dark)]">Fall?</th>
               </tr>
             </thead>
             <tbody>
@@ -181,22 +240,22 @@ export default function ResultsPage({
                 const totalSeeds = alloc.count * alloc.plant.seedsPerSpot;
                 return (
                   <tr key={`${alloc.plant.id}-${alloc.containerIndex ?? ""}`} className="border-b border-gray-100">
-                    <td className="px-4 py-2">
+                    <td className="px-4 py-3 font-bold">
                       {alloc.plant.emoji} {alloc.plant.name}
                     </td>
-                    <td className="text-center px-4 py-2">{alloc.count}</td>
-                    <td className="text-center px-4 py-2">
+                    <td className="text-center px-4 py-3 font-medium">{alloc.count}</td>
+                    <td className="text-center px-4 py-3">
                       {alloc.plant.seedsPerSpot}
                       {alloc.plant.needsThinning && (
-                        <span className="text-gray-400 text-xs ml-1">(thin)</span>
+                        <span className="text-gray-400 text-xs ml-1 font-medium">(thin)</span>
                       )}
                     </td>
-                    <td className="text-center px-4 py-2 font-medium">{totalSeeds}</td>
-                    <td className="text-center px-4 py-2">
+                    <td className="text-center px-4 py-3 font-bold" style={{ color: "var(--duo-green-dark)" }}>{totalSeeds}</td>
+                    <td className="text-center px-4 py-3">
                       {alloc.plant.canFallPlant ? (
-                        <span className="text-green-600">Yes (+{totalSeeds})</span>
+                        <span className="font-bold" style={{ color: "var(--duo-green)" }}>Yes (+{totalSeeds})</span>
                       ) : (
-                        <span className="text-gray-400">No</span>
+                        <span className="text-gray-300 font-medium">No</span>
                       )}
                     </td>
                   </tr>
@@ -205,28 +264,33 @@ export default function ResultsPage({
             </tbody>
           </table>
         </div>
-        <p className="text-xs text-gray-500 mt-2">
-          Seed counts include extras for thinning where applicable. Buy a few extra seeds as insurance for poor germination.
+        <p className="text-xs text-gray-400 mt-2 font-medium">
+          Seed counts include extras for thinning where applicable. Buy a few extra as insurance!
         </p>
       </section>
 
       {/* Growing Tips */}
       <section className="mb-10">
-        <h3 className="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
-          <span className="text-2xl">&#128161;</span> Growing Tips
+        <h3 className="section-header-duo mb-4">
+          <span className="text-3xl">💡</span> Growing Tips
         </h3>
         <div className="grid gap-3 sm:grid-cols-2">
           {selectedPlants.map((plant) => (
-            <div
-              key={plant.id}
-              className="p-3 bg-white border border-gray-100 rounded-lg"
-            >
-              <div className="font-medium text-gray-800 mb-1">
-                {plant.emoji} {plant.name}
+            <div key={plant.id} className="card-duo">
+              <div className="font-bold text-[var(--foreground)] mb-1 flex items-center gap-2">
+                <span className="text-2xl">{plant.emoji}</span> {plant.name}
               </div>
-              <p className="text-sm text-gray-600">{plant.tip}</p>
-              <div className="text-xs text-gray-400 mt-1">
-                {plant.sun} sun &middot; {plant.daysToHarvest} days to harvest &middot; {plant.spacingInches}&quot; spacing
+              <p className="text-sm text-gray-500 font-medium">{plant.tip}</p>
+              <div className="flex flex-wrap gap-1.5 mt-2">
+                <span className="badge-duo text-xs" style={{ background: "#fff3e0", color: "var(--duo-orange-dark)" }}>
+                  ☀️ {plant.sun} sun
+                </span>
+                <span className="badge-duo text-xs" style={{ background: "#e8f4fd", color: "var(--duo-blue-dark)" }}>
+                  ⏱️ {plant.daysToHarvest} days
+                </span>
+                <span className="badge-duo text-xs" style={{ background: "#f3e8ff", color: "var(--duo-purple-dark)" }}>
+                  📏 {plant.spacingInches}&quot; spacing
+                </span>
               </div>
             </div>
           ))}
@@ -234,10 +298,7 @@ export default function ResultsPage({
       </section>
 
       <div className="text-center pb-8">
-        <button
-          onClick={onStartOver}
-          className="py-3 px-8 bg-green-600 text-white rounded-lg font-semibold hover:bg-green-700 transition-colors"
-        >
+        <button onClick={onStartOver} className="btn-duo btn-duo-blue text-lg">
           Start a New Plan
         </button>
       </div>
@@ -246,11 +307,6 @@ export default function ResultsPage({
 }
 
 
-/**
- * Cluster contiguous same-plant cells into rectangular regions.
- * Greedy maximal-rectangle: scan L→R, T→B; for each unvisited plant cell,
- * expand right then down while all cells match the same plant.
- */
 interface PlantCluster {
   plantId: string;
   emoji: string;
@@ -312,11 +368,6 @@ function clusterGrid(
   return clusters;
 }
 
-/**
- * Spatial layout: renders plant clusters positioned within a scaled container/bed outline.
- * Uses a coarser display grid (6" per cell) to reduce visual noise while maintaining
- * actual plant positions from the 3" computation grid.
- */
 function SpatialGrid({
   grid,
   rows,
@@ -343,7 +394,6 @@ function SpatialGrid({
 
   const clusters = clusterGrid(grid, rows, cols, plantLookup);
 
-  // Scale the grid to fit nicely — cap the display width
   const maxDisplayWidth = 560;
   const cellPx = Math.max(4, Math.min(18, Math.floor(maxDisplayWidth / cols)));
   const gapPx = 1;
@@ -352,15 +402,16 @@ function SpatialGrid({
 
   return (
     <div>
-      <div className="inline-block border-2 border-amber-700 rounded-lg bg-amber-50 p-3">
-        <div className="text-xs text-gray-400 text-center mb-1">{widthLabel}</div>
+      <div className="inline-block rounded-2xl p-4" style={{ border: "3px solid var(--duo-green)", background: "var(--duo-green-light)" }}>
+        <div className="text-xs text-[var(--duo-green-dark)] font-bold text-center mb-1">{widthLabel}</div>
         <div className="flex items-start gap-1">
           <div
             style={{
               position: "relative",
               width: gridWidthPx,
               height: gridHeightPx,
-              backgroundColor: "rgba(251, 243, 219, 0.3)",
+              backgroundColor: "rgba(255, 255, 255, 0.4)",
+              borderRadius: 8,
             }}
           >
             {clusters.map((cl, i) => {
@@ -377,7 +428,7 @@ function SpatialGrid({
               return (
                 <div
                   key={`cl-${i}`}
-                  className={`absolute flex flex-col items-center justify-center rounded border ${color?.bg || "bg-gray-100"} ${color?.border || "border-gray-300"}`}
+                  className={`absolute flex flex-col items-center justify-center rounded-lg border-2 ${color?.bg || "bg-gray-100"} ${color?.border || "border-gray-300"}`}
                   style={{ left, top, width, height }}
                   title={`${cl.name} (${plantLookup[cl.plantId]?.spacingInches}" spacing)`}
                 >
@@ -385,7 +436,7 @@ function SpatialGrid({
                     <span style={{ fontSize, lineHeight: 1 }}>{cl.emoji}</span>
                   )}
                   {showLabel && (
-                    <span className="text-gray-600 font-medium leading-tight text-center" style={{ fontSize: Math.min(9, fontSize * 0.5) }}>
+                    <span className="text-gray-600 font-bold leading-tight text-center" style={{ fontSize: Math.min(9, fontSize * 0.5) }}>
                       {cl.name}
                     </span>
                   )}
@@ -393,16 +444,15 @@ function SpatialGrid({
               );
             })}
           </div>
-          <div className="text-xs text-gray-400 flex items-center ml-1" style={{ writingMode: "vertical-rl" }}>
+          <div className="text-xs text-[var(--duo-green-dark)] font-bold flex items-center ml-1" style={{ writingMode: "vertical-rl" }}>
             {lengthLabel}
           </div>
         </div>
-        <div className="text-xs text-gray-400 text-center mt-1">
+        <div className="text-xs text-[var(--duo-green-dark)] font-medium text-center mt-1">
           Each cell = {cellSizeInches}&quot;
         </div>
       </div>
 
-      {/* Plant legend below the grid */}
       {allocations.length > 0 && (
         <div className="mt-3 flex flex-wrap gap-1.5">
           {allocations.map((alloc) => {
@@ -410,7 +460,7 @@ function SpatialGrid({
             return (
               <span
                 key={alloc.plant.id}
-                className={`inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium border ${color?.bg || "bg-gray-100"} ${color?.border || "border-gray-300"} text-gray-700`}
+                className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-xl text-xs font-bold border-2 ${color?.bg || "bg-gray-100"} ${color?.border || "border-gray-300"} text-gray-700`}
               >
                 {alloc.plant.emoji} {alloc.count} {alloc.plant.name} ({alloc.plant.spacingInches}&quot;)
               </span>
@@ -471,10 +521,10 @@ function ContainerGrids({
 
         return (
           <div key={cl.containerIndex}>
-            <div className="text-sm font-medium text-gray-600 mb-2">
-              Container {cl.containerIndex + 1}{" "}
+            <div className="text-sm font-bold text-[var(--foreground)] mb-2">
+              🪴 Container {cl.containerIndex + 1}{" "}
               {container && (
-                <span className="text-gray-400">
+                <span className="text-gray-400 font-medium">
                   ({container.widthInches}&quot; x {container.lengthInches}&quot; x{" "}
                   {container.depthInches}&quot; deep)
                 </span>
@@ -520,24 +570,24 @@ function CompanionTips({ selectedPlants }: { selectedPlants: PlantData[] }) {
   return (
     <div className="mt-4 grid gap-3 sm:grid-cols-2">
       {tips.good.length > 0 && (
-        <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
-          <div className="text-sm font-medium text-green-800 mb-1">
-            Good Companions (placed near each other)
+        <div className="card-duo card-duo-selected">
+          <div className="text-sm font-bold mb-1" style={{ color: "var(--duo-green-dark)" }}>
+            💚 Good Companions
           </div>
           {tips.good.map((tip, i) => (
-            <div key={i} className="text-sm text-green-700">
+            <div key={i} className="text-sm font-medium" style={{ color: "var(--duo-green-dark)" }}>
               {tip}
             </div>
           ))}
         </div>
       )}
       {tips.bad.length > 0 && (
-        <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
-          <div className="text-sm font-medium text-red-800 mb-1">
-            Keep Apart (placed away from each other)
+        <div className="card-duo" style={{ borderColor: "var(--duo-red)", background: "#fff5f5" }}>
+          <div className="text-sm font-bold mb-1" style={{ color: "var(--duo-red-dark)" }}>
+            ⚡ Keep Apart
           </div>
           {tips.bad.map((tip, i) => (
-            <div key={i} className="text-sm text-red-700">
+            <div key={i} className="text-sm font-medium" style={{ color: "var(--duo-red)" }}>
               {tip}
             </div>
           ))}
@@ -549,13 +599,13 @@ function CompanionTips({ selectedPlants }: { selectedPlants: PlantData[] }) {
 
 function TimelineEvents({ eventsByMonth }: { eventsByMonth: Record<string, TimelineEvent[]> }) {
   const entries = Object.entries(eventsByMonth);
-  if (entries.length === 0) return <p className="text-sm text-gray-400 italic">No events for this season.</p>;
+  if (entries.length === 0) return <p className="text-sm text-gray-400 italic font-medium">No events for this season.</p>;
 
   return (
     <div className="space-y-6">
       {entries.map(([month, events]) => (
         <div key={month}>
-          <h4 className="text-lg font-semibold text-gray-700 mb-3 border-b border-gray-200 pb-1">
+          <h4 className="text-lg font-extrabold text-[var(--foreground)] mb-3 pb-1" style={{ borderBottom: "3px solid var(--duo-green-light)" }}>
             {month}
           </h4>
           <div className="space-y-2">
@@ -564,17 +614,17 @@ function TimelineEvents({ eventsByMonth }: { eventsByMonth: Record<string, Timel
               return (
                 <div
                   key={`${event.plantId}-${event.action}-${event.season}-${i}`}
-                  className="flex items-start gap-3 p-3 bg-white border border-gray-100 rounded-lg"
+                  className="card-duo flex items-start gap-3 !py-3"
                 >
-                  <div className="text-sm text-gray-500 min-w-[80px] font-medium">
+                  <div className="text-sm text-gray-400 min-w-[80px] font-bold">
                     {formatDate(event.date)}
                   </div>
                   <span
-                    className={`px-2 py-0.5 rounded text-xs font-medium ${color.bg} ${color.text} min-w-[90px] text-center`}
+                    className={`badge-duo text-xs ${color.bg} ${color.text}`}
                   >
-                    {color.label}
+                    {color.emoji} {color.label}
                   </span>
-                  <div className="text-sm text-gray-700">
+                  <div className="text-sm text-[var(--foreground)] font-medium">
                     {event.plantEmoji} {event.description}
                   </div>
                 </div>

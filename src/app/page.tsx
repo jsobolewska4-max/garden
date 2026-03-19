@@ -42,21 +42,26 @@ export default function Home() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-green-50 to-white">
+    <div className="min-h-screen" style={{ background: "var(--background)" }}>
       {/* Header */}
       <header className="py-6 px-4 text-center">
-        <h1 className="text-3xl sm:text-4xl font-bold text-green-800">
-          <span className="text-4xl sm:text-5xl">&#127793;</span> Garden Planner
-        </h1>
-        <p className="text-gray-600 mt-1 text-sm sm:text-base">
-          Plan your vegetable garden in minutes
+        <div className="inline-flex items-center gap-3 mb-1">
+          <span className="text-5xl sm:text-6xl animate-wiggle inline-block">&#127793;</span>
+          <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight" style={{ color: "var(--duo-green-dark)" }}>
+            Garden Planner
+          </h1>
+        </div>
+        <p className="text-gray-500 mt-1 text-sm sm:text-base font-medium">
+          Plan your dream garden in minutes!
         </p>
       </header>
 
       {/* Step indicator */}
-      <div className="px-4">
-        <StepIndicator currentStep={step} />
-      </div>
+      {step < 4 && (
+        <div className="px-4">
+          <StepIndicator currentStep={step} />
+        </div>
+      )}
 
       {/* Main content */}
       <main className="px-4 pb-12">
@@ -93,7 +98,7 @@ export default function Home() {
       </main>
 
       {/* Footer */}
-      <footer className="py-4 text-center text-xs text-gray-400 border-t border-gray-100">
+      <footer className="py-4 text-center text-xs text-gray-400 font-medium">
         Garden Planner &middot; Dates are approximate &mdash; always check local conditions
       </footer>
     </div>

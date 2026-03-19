@@ -66,85 +66,92 @@ export default function Step2Garden({ onComplete, onBack, initialConfig }: Props
   };
 
   return (
-    <div className="max-w-lg mx-auto">
-      <h2 className="text-2xl font-bold text-gray-800 mb-2">Describe your garden</h2>
-      <p className="text-gray-600 mb-6">
-        Tell us about your growing space so we can plan the best layout.
-      </p>
+    <div className="max-w-lg mx-auto animate-bounce-in">
+      <div className="text-center mb-6">
+        <span className="text-5xl mb-3 inline-block">🏡</span>
+        <h2 className="text-2xl font-extrabold text-[var(--foreground)] mb-1">
+          Describe your garden
+        </h2>
+        <p className="text-gray-500 font-medium">
+          Tell us about your growing space!
+        </p>
+      </div>
 
       {/* Garden type toggle */}
-      <div className="flex gap-2 mb-6">
+      <div className="flex gap-3 mb-6">
         <button
           onClick={() => setGardenType("inground")}
-          className={`flex-1 py-3 px-4 rounded-lg font-medium text-sm transition-colors ${
+          className={`flex-1 py-3.5 px-4 rounded-2xl font-bold text-sm transition-all border-2 ${
             gardenType === "inground"
-              ? "bg-green-600 text-white"
-              : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+              ? "bg-[var(--duo-green)] text-white border-[var(--duo-green-dark)] border-b-4"
+              : "bg-white text-gray-500 border-[#e5e5e5] hover:border-gray-300"
           }`}
         >
-          In-Ground Bed
+          🌿 In-Ground Bed
         </button>
         <button
           onClick={() => setGardenType("container")}
-          className={`flex-1 py-3 px-4 rounded-lg font-medium text-sm transition-colors ${
+          className={`flex-1 py-3.5 px-4 rounded-2xl font-bold text-sm transition-all border-2 ${
             gardenType === "container"
-              ? "bg-green-600 text-white"
-              : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+              ? "bg-[var(--duo-green)] text-white border-[var(--duo-green-dark)] border-b-4"
+              : "bg-white text-gray-500 border-[#e5e5e5] hover:border-gray-300"
           }`}
         >
-          Containers / Pots
+          🪴 Containers / Pots
         </button>
       </div>
 
       {gardenType === "inground" ? (
         <div className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Width (feet)
-              </label>
-              <input
-                type="number"
-                min="1"
-                max="100"
-                value={widthFeet}
-                onChange={(e) => setWidthFeet(e.target.value)}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 text-gray-900"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Length (feet)
-              </label>
-              <input
-                type="number"
-                min="1"
-                max="100"
-                value={lengthFeet}
-                onChange={(e) => setLengthFeet(e.target.value)}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 text-gray-900"
-              />
+          <div className="card-duo">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">
+                  Width (feet)
+                </label>
+                <input
+                  type="number"
+                  min="1"
+                  max="100"
+                  value={widthFeet}
+                  onChange={(e) => setWidthFeet(e.target.value)}
+                  className="input-duo"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">
+                  Length (feet)
+                </label>
+                <input
+                  type="number"
+                  min="1"
+                  max="100"
+                  value={lengthFeet}
+                  onChange={(e) => setLengthFeet(e.target.value)}
+                  className="input-duo"
+                />
+              </div>
             </div>
           </div>
-          <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-700">
-            Tip: A 4x8 foot raised bed is a great size for beginners!
+          <div className="flex items-center gap-3 p-4 rounded-2xl" style={{ background: "var(--duo-green-light)" }}>
+            <span className="text-2xl">💡</span>
+            <p className="text-sm font-bold" style={{ color: "var(--duo-green-dark)" }}>
+              A 4x8 foot raised bed is a great size for beginners!
+            </p>
           </div>
         </div>
       ) : (
         <div className="space-y-4">
           {containers.map((container, index) => (
-            <div
-              key={index}
-              className="p-4 border border-gray-200 rounded-lg bg-gray-50"
-            >
+            <div key={index} className="card-duo">
               <div className="flex justify-between items-center mb-3">
-                <span className="font-medium text-gray-700">
-                  Container {index + 1}
+                <span className="font-bold text-[var(--foreground)]">
+                  🪴 Container {index + 1}
                 </span>
                 {containers.length > 1 && (
                   <button
                     onClick={() => removeContainer(index)}
-                    className="text-red-500 text-sm hover:text-red-700"
+                    className="text-[var(--duo-red)] text-sm font-bold hover:opacity-70 transition-opacity"
                   >
                     Remove
                   </button>
@@ -152,7 +159,7 @@ export default function Step2Garden({ onComplete, onBack, initialConfig }: Props
               </div>
               <div className="grid grid-cols-3 gap-3">
                 <div>
-                  <label className="block text-xs text-gray-500 mb-1">
+                  <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">
                     Width (in)
                   </label>
                   <input
@@ -163,11 +170,11 @@ export default function Step2Garden({ onComplete, onBack, initialConfig }: Props
                     onChange={(e) =>
                       updateContainer(index, "widthInches", e.target.value)
                     }
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 focus:ring-2 focus:ring-green-500"
+                    className="input-duo text-sm"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs text-gray-500 mb-1">
+                  <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">
                     Length (in)
                   </label>
                   <input
@@ -178,11 +185,11 @@ export default function Step2Garden({ onComplete, onBack, initialConfig }: Props
                     onChange={(e) =>
                       updateContainer(index, "lengthInches", e.target.value)
                     }
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 focus:ring-2 focus:ring-green-500"
+                    className="input-duo text-sm"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs text-gray-500 mb-1">
+                  <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">
                     Depth (in)
                   </label>
                   <input
@@ -193,7 +200,7 @@ export default function Step2Garden({ onComplete, onBack, initialConfig }: Props
                     onChange={(e) =>
                       updateContainer(index, "depthInches", e.target.value)
                     }
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 focus:ring-2 focus:ring-green-500"
+                    className="input-duo text-sm"
                   />
                 </div>
               </div>
@@ -201,7 +208,7 @@ export default function Step2Garden({ onComplete, onBack, initialConfig }: Props
           ))}
           <button
             onClick={addContainer}
-            className="w-full py-2 border-2 border-dashed border-gray-300 rounded-lg text-gray-500 hover:border-green-400 hover:text-green-600 transition-colors"
+            className="w-full py-3 border-2 border-dashed border-gray-300 rounded-2xl text-gray-400 font-bold hover:border-[var(--duo-green)] hover:text-[var(--duo-green)] transition-colors"
           >
             + Add another container
           </button>
@@ -209,17 +216,11 @@ export default function Step2Garden({ onComplete, onBack, initialConfig }: Props
       )}
 
       <div className="flex gap-3 mt-6">
-        <button
-          onClick={onBack}
-          className="py-3 px-6 border border-gray-300 text-gray-600 rounded-lg font-medium hover:bg-gray-50 transition-colors"
-        >
+        <button onClick={onBack} className="btn-duo btn-duo-white">
           Back
         </button>
-        <button
-          onClick={handleSubmit}
-          className="flex-1 py-3 px-6 bg-green-600 text-white rounded-lg font-semibold text-lg hover:bg-green-700 transition-colors"
-        >
-          Next: Choose Plants
+        <button onClick={handleSubmit} className="btn-duo btn-duo-green flex-1 text-lg">
+          Continue
         </button>
       </div>
     </div>
