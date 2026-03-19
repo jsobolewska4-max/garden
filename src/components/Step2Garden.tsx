@@ -15,8 +15,14 @@ export default function Step2Garden({ onComplete, onBack, initialConfig }: Props
   );
   const [widthFeet, setWidthFeet] = useState(initialConfig?.widthFeet?.toString() || "4");
   const [lengthFeet, setLengthFeet] = useState(initialConfig?.lengthFeet?.toString() || "8");
-  const [containers, setContainers] = useState(
-    initialConfig?.containers || [{ widthInches: 18, lengthInches: 18, depthInches: 12 }]
+  const [containers, setContainers] = useState<
+    { widthInches: string; lengthInches: string; depthInches: string }[]
+  >(
+    initialConfig?.containers?.map((c) => ({
+      widthInches: c.widthInches.toString(),
+      lengthInches: c.lengthInches.toString(),
+      depthInches: c.depthInches.toString(),
+    })) || [{ widthInches: "18", lengthInches: "18", depthInches: "12" }]
   );
 
   const handleSubmit = () => {
@@ -27,29 +33,33 @@ export default function Step2Garden({ onComplete, onBack, initialConfig }: Props
         onComplete({ type: "inground", widthFeet: w, lengthFeet: l });
       }
     } else {
-      const validContainers = containers.filter(
-        (c) => c.widthInches > 0 && c.lengthInches > 0 && c.depthInches > 0
-      );
-      if (validContainers.length > 0) {
+      const parsed = containers
+        .map((c) => ({
+          widthInches: parseInt(c.widthInches) || 0,
+          lengthInches: parseInt(c.lengthInches) || 0,
+          depthInches: parseInt(c.depthInches) || 0,
+        }))
+        .filter((c) => c.widthInches > 0 && c.lengthInches > 0 && c.depthInches > 0);
+      if (parsed.length > 0) {
         onComplete({
           type: "container",
           widthFeet: 0,
           lengthFeet: 0,
-          containers: validContainers,
+          containers: parsed,
         });
       }
     }
   };
 
   const addContainer = () => {
-    setContainers([...containers, { widthInches: 18, lengthInches: 18, depthInches: 12 }]);
+    setContainers([...containers, { widthInches: "18", lengthInches: "18", depthInches: "12" }]);
   };
 
   const removeContainer = (index: number) => {
     setContainers(containers.filter((_, i) => i !== index));
   };
 
-  const updateContainer = (index: number, field: string, value: number) => {
+  const updateContainer = (index: number, field: string, value: string) => {
     setContainers(
       containers.map((c, i) => (i === index ? { ...c, [field]: value } : c))
     );
@@ -148,10 +158,10 @@ export default function Step2Garden({ onComplete, onBack, initialConfig }: Props
                   <input
                     type="number"
                     min="6"
-                    max="60"
+                    max="120"
                     value={container.widthInches}
                     onChange={(e) =>
-                      updateContainer(index, "widthInches", parseInt(e.target.value) || 0)
+                      updateContainer(index, "widthInches", e.target.value)
                     }
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 focus:ring-2 focus:ring-green-500"
                   />
@@ -163,10 +173,10 @@ export default function Step2Garden({ onComplete, onBack, initialConfig }: Props
                   <input
                     type="number"
                     min="6"
-                    max="60"
+                    max="120"
                     value={container.lengthInches}
                     onChange={(e) =>
-                      updateContainer(index, "lengthInches", parseInt(e.target.value) || 0)
+                      updateContainer(index, "lengthInches", e.target.value)
                     }
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 focus:ring-2 focus:ring-green-500"
                   />
@@ -181,7 +191,7 @@ export default function Step2Garden({ onComplete, onBack, initialConfig }: Props
                     max="36"
                     value={container.depthInches}
                     onChange={(e) =>
-                      updateContainer(index, "depthInches", parseInt(e.target.value) || 0)
+                      updateContainer(index, "depthInches", e.target.value)
                     }
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 focus:ring-2 focus:ring-green-500"
                   />

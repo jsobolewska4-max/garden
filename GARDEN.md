@@ -3,7 +3,7 @@
 ## Project Overview
 A web app that helps novice gardeners plan their vegetable gardens by providing personalized garden layouts and planting timelines based on their location, garden dimensions, and desired plants.
 
-## Status: V4 Updates Complete (simplified layout, timeline fixes, marigolds)
+## Status: V5 Updates Complete (spatial layout restored, input fix, UX refinements)
 
 ## Tech Stack
 - Next.js 16 with TypeScript
@@ -12,6 +12,25 @@ A web app that helps novice gardeners plan their vegetable gardens by providing 
 - Deployable to Vercel
 
 ## Session Log
+
+### Session 5 — 2026-03-19
+**Status:** V5 spatial layout restored + input fix
+
+**What was completed:**
+- **Restored spatial layout with cluster rendering** — Zone map was too abstract (lost spatial positioning). New approach:
+  - Plant clusters rendered as absolutely-positioned colored blocks within a scaled container outline
+  - Greedy rectangle clustering merges adjacent same-plant cells into clean blocks
+  - Each cluster shows emoji + name (when large enough) — no individual 3" cell noise
+  - Plant legend below grid shows emoji, count, name, spacing per plant type
+- **Fixed delete key in container dimension inputs** — Inputs used `parseInt(value) || 0` which snapped to `0` on clear, preventing editing. Now stores raw string state and parses only on submit.
+- **Increased container max dimension** — Raised from 60" to 120" to support larger raised beds
+- Build verified — zero errors
+
+**Decisions & Gotchas:**
+- Cluster rendering uses absolute positioning (not CSS grid) for cleaner layout without empty cell backgrounds
+- Display cell size auto-scales: `max(4, min(18, 560/cols))` pixels to fit containers up to ~560px display width
+- Emoji shown only when cluster min dimension ≥ 14px; name label only when ≥ 30px tall and 50px wide
+- Container dimension inputs store strings to allow natural editing (backspace/delete); parsed to integers only on form submit
 
 ### Session 4 — 2026-03-19
 **Status:** V4 UX polish and data fixes
